@@ -1,0 +1,10 @@
+[Unit]
+Description=Auto-onboard new OpenClaw agents/models/accelerators into observability
+After=multi-user.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/opt/observability/.env
+Environment=TEXTFILE_DIR=/var/lib/node_exporter/textfile_collector
+ExecStart=/opt/observability/onboard/observability-onboard.sh
+Nice=10

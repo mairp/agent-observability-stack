@@ -1,0 +1,10 @@
+# ICMP ping targets — connectivity & latency. Host-specific (edit freely).
+- targets:
+    - 192.0.2.10      # LAN gateway
+    - 192.0.2.10     # this host (vmbr0)
+    - 192.0.2.20         # vmbr1 internal
+    - 192.0.2.21         # vmbr2 internal
+    - 1.1.1.1            # internet reachability (Cloudflare)
+    - 8.8.8.8            # internet reachability (Google)
+  labels:
+    probe: icmp

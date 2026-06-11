@@ -1,0 +1,6 @@
+# Group every process by its command name -> per-program totals
+# (e.g. all chromium tabs summed, all node summed). For per-PID detail use "{{.Comm}}:{{.PID}}".
+process_names:
+  - name: "{{.Comm}}"
+    cmdline:
+      - ".+"

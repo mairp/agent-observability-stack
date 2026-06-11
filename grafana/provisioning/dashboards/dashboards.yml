@@ -1,0 +1,24 @@
+apiVersion: 1
+
+providers:
+  - name: infrastructure
+    orgId: 1
+    folder: "Infrastructure"
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards/infrastructure
+      foldersFromFilesStructure: false
+
+  - name: ai-agents
+    orgId: 1
+    folder: "AI & Agents"
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards/ai-agents
+      foldersFromFilesStructure: false

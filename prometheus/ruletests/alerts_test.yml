@@ -1,0 +1,46 @@
+# promtool rule unit tests — `promtool test rules alerts_test.yml`
+rule_files:
+  - ../rules/alerts.yml
+  - ../rules/agent-budgets.yml
+
+evaluation_interval: 1m
+
+tests:
+  # Gateway-down should fire when openclaw_diagnostics_up is 0.
+  - interval: 1m
+    input_series:
+      - series: 'openclaw_diagnostics_up'
+        values: '0 0 0 0 0'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: OpenClawGatewayDown
+        exp_alerts:
+          - exp_labels: { severity: critical }
+            exp_annotations:
+              summary: "OpenClaw diagnostics endpoint unreachable (gateway down or token invalid)"
+
+  # Probe down should fire critical after 3m.
+  - interval: 1m
+    input_series:
+      - series: 'probe_success{instance="1.1.1.1"}'
+        values: '0 0 0 0 0'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: ProbeTargetDown
+        exp_alerts:
+          - exp_labels: { severity: critical, instance: "1.1.1.1" }
+            exp_annotations:
+              summary: "Probe down: 1.1.1.1"
+
+  # Daily spend over $5 should fire the budget alert.
+  - interval: 1m
+    input_series:
+      - series: 'litellm_spend_metric_total{model="gpt-5"}'
+        values: '0+1x60'   # ramps to 60 over the hour -> >5 in 24h window
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: DailySpendBudgetExceeded
+        exp_alerts:
+          - exp_labels: { severity: warning }
+            exp_annotations:
+              summary: "Total LLM spend in last 24h over default $5 budget"

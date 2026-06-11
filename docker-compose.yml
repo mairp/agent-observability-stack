@@ -1,0 +1,203 @@
+# agent-observability-stack — generic, self-hostable observability for LLM agents + a Linux host.
+# Two pipelines, one Grafana:
+#   - infra metrics (pull): node-exporter, cadvisor, blackbox, intel-gpu-exporter, NPU textfile -> Prometheus
+#   - agent telemetry (push): OpenClaw diagnostics -> OTLP -> otel-collector -> Tempo (traces) + Prometheus (metrics)
+# Host/hypervisor-specific exporters live in docker-compose.override.yml (not committed).
+
+name: observability
+
+x-restart: &restart
+  restart: unless-stopped
+
+networks:
+  obs:
+    driver: bridge
+  # External: the LiteLLM proxy's network, so Prometheus can scrape it by service name.
+  litellm_default:
+    external: true
+
+volumes:
+  prometheus_data:
+  grafana_data:
+  tempo_data:
+  alertmanager_data:
+  loki_data:
+
+services:
+  prometheus:
+    <<: *restart
+    image: prom/prometheus:v2.54.1
+    user: "0:0"   # read root-owned secret files (openclaw_token)
+    networks: [obs, litellm_default]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "9090:9090"
+    volumes:
+      # mount the whole config dir (single-file mounts go stale when an editor swaps inodes)
+      - ./prometheus:/etc/prometheus:ro
+      - ./secrets:/etc/prometheus/secrets:ro
+      - prometheus_data:/prometheus
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=${PROM_RETENTION:-30d}
+      - --web.enable-lifecycle
+      - --web.enable-admin-api
+      - --web.enable-remote-write-receiver
+
+  grafana:
+    <<: *restart
+    image: grafana/grafana:11.2.0
+    networks: [obs]
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_FEATURE_TOGGLES_ENABLE: "traceqlEditor"
+      GF_INSTALL_PLUGINS: ""
+      # Anonymous read-only access: frictionless viewing from phone/laptop on the LAN (admin still logs in to edit).
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Viewer"
+      GF_AUTH_ANONYMOUS_ORG_NAME: "Main Org."
+      # Server-side PNG rendering via the sidecar (for the /graph Telegram bot)
+      GF_RENDERING_SERVER_URL: "http://grafana-image-renderer:8081/render"
+      GF_RENDERING_CALLBACK_URL: "http://grafana:3000/"
+      GF_LOG_FILTERS: "rendering:info"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on: [prometheus, tempo]
+
+  grafana-image-renderer:
+    <<: *restart
+    image: grafana/grafana-image-renderer:3.11.6
+    networks: [obs]
+    environment:
+      ENABLE_METRICS: "false"
+      RENDERING_MODE: "default"
+
+  grafy-bot:
+    <<: *restart
+    build: ./bot
+    image: agent-obs/grafy-bot:local
+    networks: [obs]
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_ALLOWED_CHATS: ${TELEGRAM_CHAT_ID}
+      GRAFANA_URL: "http://grafana:3000"
+      GRAFANA_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GRAFANA_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      PROM_URL: "http://prometheus:9090"
+    depends_on: [grafana, prometheus, grafana-image-renderer]
+
+  tempo:
+    <<: *restart
+    image: grafana/tempo:2.6.0
+    networks: [obs]
+    command: ["-config.file=/etc/tempo/tempo.yaml"]
+    ports:
+      - "3200:3200"   # tempo query API (Grafana datasource)
+    volumes:
+      - ./tempo/tempo.yaml:/etc/tempo/tempo.yaml:ro
+      - tempo_data:/var/tempo
+
+  loki:
+    <<: *restart
+    image: grafana/loki:3.1.1
+    networks: [obs]
+    command: ["-config.file=/etc/loki/loki-config.yaml"]
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki/loki-config.yaml:/etc/loki/loki-config.yaml:ro
+      - loki_data:/loki
+
+  otel-collector:
+    <<: *restart
+    image: otel/opentelemetry-collector-contrib:0.109.0
+    networks: [obs]
+    command: ["--config=/etc/otelcol/config.yaml"]
+    ports:
+      - "4317:4317"   # OTLP gRPC (host-published so OpenClaw on the host can push)
+      - "4318:4318"   # OTLP HTTP
+    volumes:
+      - ./otel-collector/config.yaml:/etc/otelcol/config.yaml:ro
+    depends_on: [tempo, loki]
+
+  alertmanager:
+    <<: *restart
+    image: prom/alertmanager:v0.27.0
+    user: "0:0"   # read root-owned secret files (telegram_token)
+    networks: [obs]
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./alertmanager:/etc/alertmanager:ro
+      - ./secrets:/etc/alertmanager/secrets:ro
+      - alertmanager_data:/alertmanager
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    env_file: [./.env]
+
+  node-exporter:
+    <<: *restart
+    image: prom/node-exporter:v1.8.2
+    # host network + host PID so netdev/cpu/hwmon reflect the real host
+    network_mode: host
+    pid: host
+    volumes:
+      - /:/host:ro,rslave
+      - /var/lib/node_exporter/textfile_collector:/var/lib/node_exporter/textfile_collector:ro
+    command:
+      - --path.rootfs=/host
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --collector.textfile.directory=/var/lib/node_exporter/textfile_collector
+      - --collector.hwmon
+      - --web.listen-address=:9100
+
+  cadvisor:
+    <<: *restart
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    networks: [obs]
+    privileged: true
+    devices:
+      - /dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    command:
+      - --docker_only=true
+      - --housekeeping_interval=15s
+
+  blackbox-exporter:
+    <<: *restart
+    image: prom/blackbox-exporter:v0.25.0
+    networks: [obs]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./blackbox/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+
+  process-exporter:
+    <<: *restart
+    image: ncabatoff/process-exporter:0.8.7
+    networks: [obs]
+    privileged: true            # read every /proc/<pid> regardless of owner
+    command: ["--procfs", "/host/proc", "-config.path", "/config/process-exporter.yml"]
+    volumes:
+      - /proc:/host/proc:ro
+      - ./process-exporter/config.yml:/config/process-exporter.yml:ro
+
+  # NOTE: Intel iGPU + NPU telemetry is collected on the HOST by a systemd timer
+  # (systemd/accel-textfile.timer -> exporters/accel_collect.sh) that writes into the
+  # node-exporter textfile collector. See docs/hardware.md. No privileged container needed.
