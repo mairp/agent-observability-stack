@@ -1,0 +1,7 @@
+# HTTP probe targets — endpoint reachability & latency. Host-specific (edit freely).
+# NOTE: the OpenClaw gateway (:18789) is firewalled to the LAN subnet only, so probing it from a
+# container fails; its liveness is tracked instead by openclaw_diagnostics_up (loopback textfile scrape).
+- targets:
+    - https://example.com                       # public digital-twin site
+  labels:
+    probe: http

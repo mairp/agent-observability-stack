@@ -1,0 +1,9 @@
+[Unit]
+Description=Intel iGPU + NPU telemetry -> node_exporter textfile collector
+After=multi-user.target
+
+[Service]
+Type=oneshot
+Environment=TEXTFILE_DIR=/var/lib/node_exporter/textfile_collector
+ExecStart=/opt/observability/exporters/accel_collect.sh
+Nice=10

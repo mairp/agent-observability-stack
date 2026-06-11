@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Intel iGPU + NPU telemetry collector every 15s
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=15s
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,10 @@
+.env
+secrets/
+*.secret
+docker-compose.override.yml
+data/
+*/data/
+onboard/registry.json
+alertmanager/alertmanager.yml
+media/frames/
+*.bak*

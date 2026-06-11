@@ -1,0 +1,104 @@
+groups:
+  - name: host
+    rules:
+      - alert: HostHighCPU
+        expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "CPU >90% for 10m on {{ $labels.instance }}"
+
+      - alert: HostHighMemory
+        expr: (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 > 90
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "Memory >90% on {{ $labels.instance }}"
+
+      - alert: HostDiskAlmostFull
+        expr: (1 - node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"}) * 100 > 90
+        for: 15m
+        labels: { severity: warning }
+        annotations:
+          summary: "Filesystem {{ $labels.mountpoint }} >90% full on {{ $labels.instance }}"
+
+      - alert: HostHighTemp
+        expr: node_hwmon_temp_celsius > 90
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "Sensor {{ $labels.chip }} >90°C on {{ $labels.instance }}"
+
+  - name: accelerators
+    rules:
+      - alert: NPUSaturated
+        expr: rate(intel_npu_busy_time_us[5m]) / 1e6 > 0.95
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "Intel NPU busy >95% for 10m on {{ $labels.instance }}"
+
+      - alert: GPUSaturated
+        expr: intel_gpu_engine_busy_ratio > 0.95
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "Intel iGPU engine {{ $labels.engine }} >95% for 10m"
+
+  - name: network
+    rules:
+      - alert: ProbeTargetDown
+        expr: probe_success == 0
+        for: 3m
+        labels: { severity: critical }
+        annotations:
+          summary: "Probe down: {{ $labels.instance }}"
+
+      - alert: ProbeHighLatency
+        expr: probe_duration_seconds > 2
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "High probe latency (>2s): {{ $labels.instance }}"
+
+  - name: containers
+    rules:
+      - alert: ContainerRestartLoop
+        expr: increase(container_start_time_seconds[15m]) > 3
+        for: 0m
+        labels: { severity: warning }
+        annotations:
+          summary: "Container {{ $labels.name }} restarting repeatedly"
+
+  - name: agents
+    rules:
+      - alert: OpenClawGatewayDown
+        expr: openclaw_diagnostics_up == 0 or absent(openclaw_diagnostics_up)
+        for: 3m
+        labels: { severity: critical }
+        annotations:
+          summary: "OpenClaw diagnostics endpoint unreachable (gateway down or token invalid)"
+
+      - alert: ModelCallLatencyP95High
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le, model) (rate(openclaw_model_call_duration_seconds_bucket[5m]))
+          ) > 45
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "Model {{ $labels.model }} call p95 >45s"
+
+      - alert: ModelCallErrorSpike
+        expr: increase(openclaw_model_call_total{outcome!="completed"}[15m]) > 5
+        for: 0m
+        labels: { severity: warning }
+        annotations:
+          summary: "Model {{ $labels.model }} errors spiking (outcome={{ $labels.outcome }})"
+
+      - alert: LiteLLMProxyDown
+        expr: up{job="litellm"} == 0
+        for: 3m
+        labels: { severity: critical }
+        annotations:
+          summary: "LiteLLM proxy /metrics unreachable"
