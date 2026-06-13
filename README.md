@@ -13,9 +13,9 @@ New agents, containers, and accelerators **onboard themselves** — no per-targe
 
 ## Demo
 
-Full walkthrough (~70s) — the dashboards end to end:
+Full walkthrough (~45s) — the dashboards end to end:
 
-https://github.com/user-attachments/assets/eadd8692-f04e-411f-b637-1ed303786784
+https://github.com/user-attachments/assets/fe0ccd9a-33a8-4c69-9565-e49d779fe654
 
 Per-pipeline highlights:
 
