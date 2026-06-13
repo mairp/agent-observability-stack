@@ -73,7 +73,7 @@
             "uid": "prometheus"
           },
           "expr": "clamp_max(rate(intel_npu_busy_time_us[5m])/1e6*100,100)",
-          "legendFormat": ""
+          "legendFormat": "busy %"
         }
       ]
     },
@@ -126,7 +126,7 @@
             "uid": "prometheus"
           },
           "expr": "intel_npu_frequency_mhz{type=\"current\"}",
-          "legendFormat": ""
+          "legendFormat": "freq MHz"
         }
       ]
     },
@@ -179,7 +179,7 @@
             "uid": "prometheus"
           },
           "expr": "intel_npu_memory_bytes",
-          "legendFormat": ""
+          "legendFormat": "npu mem"
         }
       ]
     },
@@ -240,7 +240,7 @@
             "uid": "prometheus"
           },
           "expr": "max(intel_gpu_engine_busy_ratio)*100",
-          "legendFormat": ""
+          "legendFormat": "busy %"
         }
       ]
     },
@@ -562,7 +562,7 @@
             "uid": "prometheus"
           },
           "expr": "intel_gpu_memory_bytes{type=\"resident\"}",
-          "legendFormat": ""
+          "legendFormat": "resident"
         }
       ]
     },
@@ -615,7 +615,7 @@
             "uid": "prometheus"
           },
           "expr": "intel_gpu_clients",
-          "legendFormat": ""
+          "legendFormat": "clients"
         }
       ]
     },
@@ -668,7 +668,7 @@
             "uid": "prometheus"
           },
           "expr": "intel_npu_memory_bytes",
-          "legendFormat": ""
+          "legendFormat": "npu mem"
         }
       ]
     },
@@ -721,7 +721,7 @@
             "uid": "prometheus"
           },
           "expr": "(scalar(intel_gpu_memory_bytes{type=\"resident\"} or vector(0))+scalar(intel_npu_memory_bytes or vector(0)))/scalar(node_memory_MemTotal_bytes)*100",
-          "legendFormat": ""
+          "legendFormat": "accel mem %"
         }
       ]
     },
