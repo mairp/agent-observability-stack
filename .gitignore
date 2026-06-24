@@ -8,3 +8,7 @@ onboard/registry.json
 alertmanager/alertmanager.yml
 media/frames/
 *.bak*
+# Host-specific live probe targets hold real internal IPs — keep local, never push.
+# Sanitized *.example templates are committed instead (see bin/make-public.sh mapping).
+prometheus/targets/blackbox-icmp.yml
+prometheus/targets/blackbox-http.yml
