@@ -58,7 +58,7 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_FEATURE_TOGGLES_ENABLE: "traceqlEditor"
-      GF_INSTALL_PLUGINS: ""
+      GF_INSTALL_PLUGINS: "yesoreyeram-infinity-datasource,nline-plotlyjs-panel"
       # Anonymous read-only access: frictionless viewing from phone/laptop on the LAN (admin still logs in to edit).
       GF_AUTH_ANONYMOUS_ENABLED: "true"
       GF_AUTH_ANONYMOUS_ORG_ROLE: "Viewer"
