@@ -28,6 +28,12 @@ Per-pipeline highlights:
 
 ![agents pipeline](media/agents-pipeline.gif)
 
+**QMD Vector Space** — the RAG memory corpus + benchmark queries projected to 2D/3D (PCA of the local
+Qwen3 embeddings); docs colored by collection, queries by type (open marker = retrieval miss). Provisioned
+as a Plotly + Infinity dashboard in the "AI & Agents" folder:
+
+![qmd vector space](media/qmd-vector-space.gif)
+
 ## Architecture
 
 ```
