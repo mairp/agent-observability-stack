@@ -38,12 +38,28 @@ groups:
         annotations:
           summary: "Intel NPU busy >95% for 10m on {{ $labels.instance }}"
 
-      - alert: GPUSaturated
-        expr: intel_gpu_engine_busy_ratio > 0.95
+      # Intel iGPU GPUSaturated retired 2026-06-30: inference migrated off the Arc iGPU to the
+      # RTX 3090 (the iGPU is now idle). NVIDIA equivalents below.
+      - alert: NvidiaGPUSaturated
+        expr: nvidia_gpu_utilization_ratio > 0.95
         for: 10m
         labels: { severity: warning }
         annotations:
-          summary: "Intel iGPU engine {{ $labels.engine }} >95% for 10m"
+          summary: "RTX 3090 ({{ $labels.name }}) utilization >95% for 10m"
+
+      - alert: NvidiaVRAMHigh
+        expr: nvidia_gpu_memory_used_bytes / nvidia_gpu_memory_total_bytes > 0.95
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: "RTX 3090 VRAM >95% ({{ $labels.name }}) — OOM risk for llama-server"
+
+      - alert: NvidiaGPUHot
+        expr: nvidia_gpu_temperature_celsius > 85
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "RTX 3090 ({{ $labels.name }}) >85°C for 10m"
 
   - name: network
     rules:
@@ -102,3 +118,24 @@ groups:
         labels: { severity: critical }
         annotations:
           summary: "LiteLLM proxy /metrics unreachable"
+
+  - name: inference
+    rules:
+      - alert: LlamaArcDown
+        expr: up{job="llama-arc"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: "llama.cpp inference server (RTX 3090) /metrics unreachable"
+
+      # Windowed decode tok/s collapses while the server is actively decoding — signals MTP
+      # mis-acceptance, GPU contention, or a stuck slot (baseline is ~41 no-MTP / ~55+ with MTP).
+      - alert: LlamaDecodeCollapse
+        expr: |
+          (rate(llamacpp:tokens_predicted_total[5m])
+             / clamp_min(rate(llamacpp:tokens_predicted_seconds_total[5m]), 0.001)) < 20
+          and rate(llamacpp:n_decode_total[5m]) > 0
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "llama.cpp decode throughput <20 tok/s for 10m while actively generating"

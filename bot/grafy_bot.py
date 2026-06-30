@@ -20,6 +20,8 @@ GRAFANA = os.environ.get("GRAFANA_URL", "http://grafana:3000").rstrip("/")
 GUSER = os.environ.get("GRAFANA_USER", "admin")
 GPASS = os.environ.get("GRAFANA_PASSWORD", "admin")
 PROM = os.environ.get("PROM_URL", "http://prometheus:9090").rstrip("/")
+# Browser-reachable Grafana base (for clickable links in messages); internal render URL is not.
+GRAFANA_PUBLIC = os.environ.get("GRAFANA_PUBLIC_URL", "").rstrip("/")
 RW = int(os.environ.get("RENDER_WIDTH", "1600"))
 RH = int(os.environ.get("RENDER_HEIGHT", "1300"))
 API = f"https://api.telegram.org/bot{TOKEN}"
@@ -50,6 +52,20 @@ DASH = {
     "rag": ("rag", "rag", "RAG / Memory"),
     "memory": ("rag", "rag", "RAG / Memory"),
     "qmd": ("rag", "rag", "RAG / Memory"),
+    "vectors": ("qmd-vector-space", "qmd-vector-space", "QMD Vector Space"),
+    "vector": ("qmd-vector-space", "qmd-vector-space", "QMD Vector Space"),
+    "vector-space": ("qmd-vector-space", "qmd-vector-space", "QMD Vector Space"),
+    "vectorspace": ("qmd-vector-space", "qmd-vector-space", "QMD Vector Space"),
+    "space": ("qmd-vector-space", "qmd-vector-space", "QMD Vector Space"),
+    "embeddings": ("qmd-vector-space", "qmd-vector-space", "QMD Vector Space"),
+    "pca": ("qmd-vector-space", "qmd-vector-space", "QMD Vector Space"),
+}
+
+# Dashboards whose full render is unusable headless (e.g. a WebGL scatter3d panel that the
+# image-renderer's Chromium can't draw). Render a single SVG panel solo instead, and append a
+# note. uid -> (panel_id, note). The note points at the interactive view for the dropped panel.
+SOLO = {
+    "qmd-vector-space": (1, "🌀 3D view is interactive (WebGL) — open the dashboard in Grafana and drag to rotate."),
 }
 
 # per-uid value summaries: (label, promql, formatter)
@@ -114,6 +130,11 @@ SUMMARY = {
         ("RAG vectors", 'sum(qmd_vectors_total)', num),
         ("Indexes", 'count(qmd_documents_total)', num),
     ],
+    "qmd-vector-space": [
+        ("Docs", 'sum(qmd_documents_total)', num),
+        ("Vectors", 'sum(qmd_vectors_total)', num),
+        ("Collections", 'count(qmd_documents_total)', num),
+    ],
     "containers": [
         ("Containers", 'count(container_last_seen{name!=""})', num),
         ("Total mem", 'sum(container_memory_working_set_bytes{name!=""})', gb),
@@ -140,10 +161,16 @@ def values_text(uid):
     return "\n".join(out)
 
 
-def render_png(uid, slug, rng):
-    url = f"{GRAFANA}/render/d/{uid}/{slug}"
-    params = {"kiosk": "", "width": RW, "height": RH, "from": f"now-{rng}", "to": "now",
+def render_png(uid, slug, rng, panel_id=None):
+    params = {"width": RW, "height": RH, "from": f"now-{rng}", "to": "now",
               "theme": "dark", "tz": "Asia/Dubai"}
+    if panel_id is not None:
+        # single-panel render: d-solo + panelId, narrower aspect for one chart
+        url = f"{GRAFANA}/render/d-solo/{uid}/{slug}"
+        params.update({"panelId": panel_id, "width": 1100, "height": 850})
+    else:
+        url = f"{GRAFANA}/render/d/{uid}/{slug}"
+        params["kiosk"] = ""
     r = requests.get(url, params=params, auth=(GUSER, GPASS), timeout=60)
     if r.status_code == 200 and r.headers.get("content-type", "").startswith("image"):
         return r.content
@@ -187,7 +214,7 @@ HELP = (
     "/values &lt;dashboard&gt; [range] — values only\n"
     "/alerts — firing alerts\n"
     "/list — dashboards\n\n"
-    "dashboards: host, accelerators, network, containers, agents, claude-code, llm-cost, rag\n"
+    "dashboards: host, accelerators, network, containers, agents, claude-code, llm-cost, rag, vectors\n"
     "range: 1h (default 3h), 6h, 24h, 7d\n"
     "e.g. <code>/graph agents 24h</code>"
 )
@@ -228,10 +255,16 @@ def handle(chat, text):
         rng = args[1] if len(args) > 1 else "3h"
         vals = values_text(uid)
         caption = f"<b>{title}</b> · last {rng}\n{vals}"
+        solo = SOLO.get(uid)  # (panel_id, note) for dashboards we render one panel of
+        if solo:
+            note = solo[1]
+            if GRAFANA_PUBLIC:
+                note += f"\n{GRAFANA_PUBLIC}/d/{uid}/{slug}"
+            caption += f"\n\n{note}"
         if cmd == "/values":
             send(chat, caption); return
         send(chat, f"🖼 rendering <b>{title}</b>…")
-        png = render_png(uid, slug, rng)
+        png = render_png(uid, slug, rng, panel_id=solo[0] if solo else None)
         if png:
             send_photo(chat, png, caption[:1024])
         else:
