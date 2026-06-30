@@ -32,6 +32,34 @@ tests:
             exp_annotations:
               summary: "Probe down: 1.1.1.1"
 
+  # NVIDIA VRAM >95% should fire critical after 5m (OOM risk).
+  - interval: 1m
+    input_series:
+      - series: 'nvidia_gpu_memory_used_bytes{gpu="0",name="NVIDIA GeForce RTX 3090"}'
+        values: '24000000000x6'
+      - series: 'nvidia_gpu_memory_total_bytes{gpu="0",name="NVIDIA GeForce RTX 3090"}'
+        values: '25000000000x6'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: NvidiaVRAMHigh
+        exp_alerts:
+          - exp_labels: { severity: critical, gpu: "0", name: "NVIDIA GeForce RTX 3090" }
+            exp_annotations:
+              summary: "RTX 3090 VRAM >95% (NVIDIA GeForce RTX 3090) — OOM risk for llama-server"
+
+  # llama.cpp inference server down should fire critical after 2m.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="llama-arc"}'
+        values: '0 0 0 0'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: LlamaArcDown
+        exp_alerts:
+          - exp_labels: { severity: critical, job: "llama-arc" }
+            exp_annotations:
+              summary: "llama.cpp inference server (RTX 3090) /metrics unreachable"
+
   # Daily spend over $5 should fire the budget alert.
   - interval: 1m
     input_series:
