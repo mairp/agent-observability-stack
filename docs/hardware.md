@@ -41,3 +41,31 @@ The node_exporter container mounts the textfile dir read-only; the scripts write
 ## Optional: virtualization-host exporter
 If the host is a hypervisor, add a host exporter via a **private** compose overlay
 (`docker-compose.override.yml`, git-ignored) and a scrape job — kept out of this repo to stay generic.
+
+## NVIDIA dGPU — `exporters/nvidia_gpu_textfile.sh`
+For the RTX 3090 eGPU (CUDA inference host). Wraps `nvidia-smi` (driver on the host), `LC_ALL=C` so
+awk emits dot decimals, atomic write, safe no-op if `nvidia-smi`/the card is absent. Chained from
+`accel_collect.sh` (same `accel-textfile.timer`). Emits (label `gpu`,`name`):
+- `nvidia_gpu_utilization_ratio` (0–1), `nvidia_gpu_temperature_celsius`,
+  `nvidia_gpu_power_watts` / `nvidia_gpu_power_limit_watts`, `nvidia_gpu_clock_sm_mhz` / `_mem_mhz`
+- `nvidia_gpu_memory_{used,free,total}_bytes`
+- `nvidia_gpu_process_memory_bytes{pid,process}` — per-process VRAM (e.g. the `llama-server` inference
+  process). NB: QMD's embeddings run on the **Intel iGPU** (Vulkan), not the 3090, so they don't appear here.
+- `nvidia_gpu_present` (1/0)
+Surfaced on the **Accelerators** dashboard (NVIDIA RTX 3090 row). Alerts: `NvidiaVRAMHigh` (>95%, OOM
+risk), `NvidiaGPUHot` (>85°C), `NvidiaGPUSaturated`.
+
+## llama.cpp inference metrics
+The RTX 3090 inference server (`llama-arc`, llama.cpp `server-cuda`) runs with `--metrics`, exposing
+`llamacpp:*` at `:8080/metrics`. Prometheus scrapes it directly over the shared `litellm_default`
+network (job `llama-arc`). The **LLM Inference — llama.cpp + MTP** dashboard (ai-agents) shows
+decode/prefill tok/s, queue depth, and the **MTP speculative signal**
+`llamacpp:tokens_predicted_total / llamacpp:n_decode_total` (≈ tokens accepted per decode; 1.0 = no
+speculation, ~2.4 observed with Qwen3.6 MTP). Alerts: `LlamaArcDown`, `LlamaDecodeCollapse`.
+
+**Firewall requirement (important):** node-exporter runs `network_mode: host`, and the dockerised
+Prometheus scrapes it via `host.docker.internal:9100`. The host's `INPUT` policy is `DROP`, so
+`setup-firewall.sh` must allow it:
+`iptables -A INPUT -s 172.16.0.0/12 -p tcp --dport 9100 -j ACCEPT`.
+Without that rule the **entire `node` job is down** (no CPU/RAM/disk/iGPU/NPU/NVIDIA metrics) — the
+scrape times out (`context deadline exceeded`).

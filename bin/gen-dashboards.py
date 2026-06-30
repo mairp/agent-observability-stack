@@ -197,8 +197,25 @@ acc = [
     stat("Accel mem % of RAM", '(scalar(intel_gpu_memory_bytes{type="resident"} or vector(0))+scalar(intel_npu_memory_bytes or vector(0)))/scalar(node_memory_MemTotal_bytes)*100', "percent", 6, 4, 18, 20),
     ts("iGPU memory (resident vs total)", [('intel_gpu_memory_bytes{type="resident"}', "resident"), ('intel_gpu_memory_bytes{type="total"}', "total")], "bytes", 12, 8, 0, 24),
     ts("NPU memory", [('intel_npu_memory_bytes', "npu mem")], "bytes", 12, 8, 12, 24),
+    # ----- NVIDIA dGPU (nvidia-smi textfile collector) — the CUDA inference card -----
+    stat("NVIDIA GPU util", 'nvidia_gpu_utilization_ratio*100', "percent", 6, 4, 0, 32,
+         thresholds=[{"color": "green", "value": None}, {"color": "orange", "value": 70}, {"color": "red", "value": 95}]),
+    stat("NVIDIA VRAM used %", 'nvidia_gpu_memory_used_bytes/nvidia_gpu_memory_total_bytes*100', "percent", 6, 4, 6, 32,
+         thresholds=[{"color": "green", "value": None}, {"color": "orange", "value": 85}, {"color": "red", "value": 95}]),
+    stat("NVIDIA temp", 'nvidia_gpu_temperature_celsius', "celsius", 6, 4, 12, 32,
+         thresholds=[{"color": "green", "value": None}, {"color": "orange", "value": 75}, {"color": "red", "value": 85}]),
+    stat("NVIDIA power", 'nvidia_gpu_power_watts', "watt", 6, 4, 18, 32,
+         thresholds=[{"color": "green", "value": None}, {"color": "orange", "value": 300}, {"color": "red", "value": 400}]),
+    ts("NVIDIA GPU utilization %", [('nvidia_gpu_utilization_ratio*100', "{{name}}")], "percent", 12, 8, 0, 36),
+    ts("NVIDIA VRAM (used / free / total)", [('nvidia_gpu_memory_used_bytes', "used"),
+        ('nvidia_gpu_memory_free_bytes', "free"), ('nvidia_gpu_memory_total_bytes', "total")], "bytes", 12, 8, 12, 36),
+    ts("NVIDIA per-process VRAM", [('nvidia_gpu_process_memory_bytes', "{{process}} (pid {{pid}})")], "bytes", 12, 8, 0, 44),
+    ts("NVIDIA power: draw vs limit", [('nvidia_gpu_power_watts', "draw"),
+        ('nvidia_gpu_power_limit_watts', "limit")], "watt", 6, 8, 12, 44),
+    ts("NVIDIA clocks (SM / mem)", [('nvidia_gpu_clock_sm_mhz', "SM"),
+        ('nvidia_gpu_clock_mem_mhz', "mem")], "rotmhz", 6, 8, 18, 44),
 ]
-write(dashboard("Accelerators (iGPU + NPU)", "accelerators", acc, ["infra", "gpu", "npu"]), "infrastructure")
+write(dashboard("Accelerators (NVIDIA + iGPU + NPU)", "accelerators", acc, ["infra", "gpu", "npu", "nvidia"]), "infrastructure")
 
 # ---------------- Network ----------------
 _id = itertools.count(1)
@@ -313,6 +330,32 @@ rag = [
     ts("Index freshness (age)", [('qmd_index_age_seconds', "{{index}}")], "s", 12, 8, 12, 12),
 ]
 write(dashboard("RAG / Memory (QMD)", "rag", rag, ["ai", "rag"]), "ai-agents")
+
+# ---------------- LLM Inference (llama.cpp + MTP speculative decoding) ----------------
+# llama.cpp server-cuda (RTX 3090) runs with --metrics → llamacpp:* (job "llama-arc"). The MTP
+# speculative-decoding signal = tokens_predicted_total / n_decode_total (≈ tokens accepted per decode;
+# 1.0 = no speculation, >1 = drafts accepted). No llamacpp:kv_cache_* in this build. BASELINE = the
+# measured no-MTP decode tok/s (reference line so the speedup is visible on the throughput panel).
+_id = itertools.count(1)
+BASELINE = "41"
+DECODE = 'rate(llamacpp:tokens_predicted_total[1m])/clamp_min(rate(llamacpp:tokens_predicted_seconds_total[1m]),0.001)'
+PREFILL = 'rate(llamacpp:prompt_tokens_total[1m])/clamp_min(rate(llamacpp:prompt_seconds_total[1m]),0.001)'
+ACCEPT = 'rate(llamacpp:tokens_predicted_total[5m])/clamp_min(rate(llamacpp:n_decode_total[5m]),0.001)'
+inf = [
+    stat("Decode tok/s (live)", 'llamacpp:predicted_tokens_seconds', "short", 6, 4, 0, 0,
+         thresholds=[{"color": "red", "value": None}, {"color": "orange", "value": 40}, {"color": "green", "value": 50}]),
+    stat("Prefill tok/s (live)", 'llamacpp:prompt_tokens_seconds', "short", 6, 4, 6, 0),
+    stat("MTP tokens/decode", 'llamacpp:tokens_predicted_total/clamp_min(llamacpp:n_decode_total,1)', "short", 6, 4, 12, 0,
+         thresholds=[{"color": "red", "value": None}, {"color": "orange", "value": 1.2}, {"color": "green", "value": 1.6}]),
+    stat("Requests processing", 'llamacpp:requests_processing', "short", 6, 4, 18, 0),
+    ts("Decode throughput (tok/s) vs no-MTP baseline", [(DECODE, "decode tok/s"), (BASELINE, "baseline (no-MTP)")], "short", 12, 8, 0, 4),
+    ts("Prefill throughput (tok/s)", [(PREFILL, "prefill tok/s")], "short", 12, 8, 12, 4),
+    ts("MTP effectiveness — tokens accepted per decode (1.0 = no speculation)", [(ACCEPT, "tokens/decode"), ("1", "no-spec floor")], "short", 12, 8, 0, 12),
+    ts("Requests: processing / deferred", [('llamacpp:requests_processing', "processing"), ('llamacpp:requests_deferred', "deferred")], "short", 12, 8, 12, 12),
+    ts("Token volume (rate)", [('rate(llamacpp:tokens_predicted_total[5m])', "generated tok/s"), ('rate(llamacpp:prompt_tokens_total[5m])', "prompt tok/s")], "short", 12, 8, 0, 20),
+    ts("GPU VRAM: used / free (3090)", [('nvidia_gpu_memory_used_bytes', "used"), ('nvidia_gpu_memory_free_bytes', "free")], "bytes", 12, 8, 12, 20),
+]
+write(dashboard("LLM Inference — llama.cpp + MTP (RTX 3090)", "inference-llama", inf, ["ai", "inference", "llama.cpp", "mtp"], templating=[]), "ai-agents")
 
 # ---------------- Containers ----------------
 _id = itertools.count(1)

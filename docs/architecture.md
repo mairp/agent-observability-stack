@@ -11,7 +11,13 @@ Prometheus scrapes:
   `prometheus/targets/*.yml`, discovered via `file_sd`).
 - **Intel iGPU/NPU** — `exporters/intel_gpu_textfile.py` (wraps `intel_gpu_top -J`) and
   `exporters/intel_npu_textfile.sh` (reads `intel_vpu` sysfs) write `.prom` files into the textfile dir.
+- **NVIDIA GPU** — `exporters/nvidia_gpu_textfile.sh` (wraps `nvidia-smi`) writes `nvidia_gpu_*`
+  (util, VRAM used/free/total incl. **per-process**, temp, power/limit, SM/mem clocks) into the textfile
+  dir. All three accelerator collectors are chained by `exporters/accel_collect.sh` (one `accel-textfile.timer`).
 - **LiteLLM** `/metrics/` — tokens, spend, cache, latency by model (bearer-auth scrape).
+- **llama.cpp inference** (`llama-arc:8080/metrics`, job `llama-arc`) — the CUDA inference server runs with
+  `--metrics`, exposing `llamacpp:*` (decode/prefill tok/s, `n_decode_total` for the MTP acceptance signal,
+  request queue). Scraped directly over the shared `litellm_default` docker network (no auth, internal only).
 - **OpenClaw diagnostics** — a host-side script scrapes the gateway's `/api/diagnostics/prometheus`
   over **loopback** and republishes it via the textfile collector (avoids exposing the gateway port to
   containers). See [agents.md](agents.md).
@@ -37,6 +43,12 @@ Provisioned datasources (**Prometheus + Tempo + Loki**) and dashboards (as code 
 
 ## Why textfile collectors for accelerators + OpenClaw?
 - Intel NPU has no Prometheus exporter; its sysfs counters are trivially scraped by a tiny script.
-- `intel_gpu_top` needs host privileges; running it on the host (not a privileged container) is safer.
+- `intel_gpu_top` / `nvidia-smi` need host access; running them on the host (not a privileged container)
+  is safer and avoids giving a container GPU access just to read counters.
 - The OpenClaw gateway is firewalled to the LAN; scraping it over loopback avoids opening the port to
-  the Docker bridge. All three publish through node_exporter's textfile directory.
+  the Docker bridge. All publish through node_exporter's textfile directory.
+
+> **Firewall note:** node_exporter runs `network_mode: host`, so the dockerised Prometheus scrapes it via
+> `host.docker.internal:9100`. With a default-DROP host `INPUT` policy this must be allowed
+> (`iptables -A INPUT -s 172.16.0.0/12 -p tcp --dport 9100 -j ACCEPT`) or the **whole `node` job is down**
+> (all host + accelerator metrics missing). See [hardware.md](hardware.md).

@@ -1,13 +1,15 @@
 # agent-observability-stack
 
-A self-hostable observability stack for **LLM agents + a Linux host (Intel iGPU/NPU aware)**, built
-as a single LAN-accessible pane of glass. Two pipelines, one Grafana:
+A self-hostable observability stack for **LLM agents + a Linux host (Intel iGPU/NPU + NVIDIA GPU aware)**,
+built as a single LAN-accessible pane of glass. Two pipelines, one Grafana:
 
-- **Infra metrics (pull):** CPU, RAM, disk, network + latency, containers, and **Intel iGPU/NPU**
-  telemetry → Prometheus.
+- **Infra metrics (pull):** CPU, RAM, disk, network + latency, containers, and **accelerator** telemetry —
+  **Intel iGPU/NPU** and **NVIDIA GPU** (`nvidia-smi`: util, VRAM incl. per-process, temp, power, clocks) →
+  Prometheus.
 - **Agent telemetry (push):** [OpenClaw](https://openclaw.ai) diagnostics → OTLP → OpenTelemetry
   Collector → **Grafana Tempo** (traces) + Prometheus (metrics); LLM **tokens, cost, latency, cache**
-  from a [LiteLLM](https://litellm.ai) proxy.
+  from a [LiteLLM](https://litellm.ai) proxy; and **local llama.cpp inference** (`/metrics`: decode/prefill
+  tok/s, queue depth, and an **MTP speculative-decoding** acceptance signal).
 
 New agents, containers, and accelerators **onboard themselves** — no per-target config edits.
 
@@ -37,19 +39,23 @@ as a Plotly + Infinity dashboard in the "AI & Agents" folder:
 ## Architecture
 
 ```
-INFRA METRICS (pull)                    AGENT / AI TELEMETRY (push)
- node_exporter ─┐                        OpenClaw gateway          Claude Code (OTel)
- cadvisor      ─┤                         ├─ diag-prometheus ─(loopback textfile)─┐   │
- blackbox      ─┼─► Prometheus ◄──────────┤                                       │   │ OTLP
- intel npu/gpu ─┤        ▲                 └─ diag-otel ──OTLP─┐                   │   ▼
- litellm /metrics┘       │                                    ▼                   └► OTel Collector
-                         │                              OTel Collector ──traces──► Tempo
-                         │                                   │  │  └────logs───────► Loki
-                         └───────────────(metrics)───────────┘  │                     │
-                      Grafana ◄────────── Prometheus + Tempo + Loki datasources ◄──────┘
-                   (LAN :3000)   folders: Infrastructure · AI & Agents
-                         ▲
+INFRA METRICS (pull)                       AGENT / AI TELEMETRY (push)
+ node_exporter ────┐                        OpenClaw gateway          Claude Code (OTel)
+ cadvisor         ─┤                          ├─ diag-prometheus ─(loopback textfile)─┐   │
+ blackbox         ─┤                          │                                       │   │ OTLP
+ intel igpu/npu   ─┼─► Prometheus ◄───────────┤                                       │   ▼
+ nvidia gpu       ─┤        ▲                  └─ diag-otel ──OTLP─┐                   └► OTel Collector
+ llama.cpp /metrics┤        │                                     ▼                        │
+ litellm /metrics ─┘        │                               OTel Collector ──traces──► Tempo
+                            │                                    │  │  └────logs──────► Loki
+                            └───────────────(metrics)────────────┘  │                     │
+                         Grafana ◄────────── Prometheus + Tempo + Loki datasources ◄───────┘
+                      (LAN :3000)   folders: Infrastructure · AI & Agents
+                            ▲
         grafy-bot (Telegram /graph) · grafana-image-renderer (PNG) · Alertmanager → Telegram
+
+ accelerators: host textfile collectors (nvidia-smi / intel_gpu_top / intel_vpu sysfs) → node_exporter
+ inference:    llama.cpp server-cuda (RTX 3090, MTP speculative decoding) → llama-arc:8080/metrics
 ```
 
 ## Quickstart
@@ -63,8 +69,8 @@ sudo systemctl enable --now accel-textfile.timer observability-onboard.timer
 ```
 
 Open Grafana at `http://<HOST_LAN_IP>:3000`. Dashboards are provisioned into two folders:
-**Infrastructure** (host, accelerators, network, containers) and **AI & Agents** (Claude Code,
-LLM Cost & Consumption, OpenClaw Agents, RAG).
+**Infrastructure** (host, accelerators incl. NVIDIA GPU, network, containers) and **AI & Agents**
+(Claude Code, LLM Cost & Consumption, OpenClaw Agents, **LLM Inference — llama.cpp + MTP**, RAG).
 
 | Service                  | Port | Purpose                                        |
 |--------------------------|------|------------------------------------------------|
@@ -106,9 +112,14 @@ See [docs/agents.md](docs/agents.md) and [docs/dashboards.md](docs/dashboards.md
 
 ## What you get
 
-- **Host & virtualization-host dashboards** (node_exporter), **Intel Arc iGPU** (busy %, freq, power) and
-  **Intel NPU** (busy, freq, memory) panels, network reachability + latency (blackbox), per-container
-  resources (cAdvisor).
+- **Host & virtualization-host dashboards** (node_exporter), **Intel Arc iGPU** (busy %, freq, power),
+  **Intel NPU** (busy, freq, memory) and **NVIDIA GPU** (utilization, VRAM used/free/total incl.
+  **per-process VRAM**, temperature, power vs limit, SM/mem clocks) panels, network reachability +
+  latency (blackbox), per-container resources (cAdvisor).
+- **LLM Inference (llama.cpp)**: decode & prefill throughput (tok/s) vs a no-speculation baseline line,
+  request queue depth, token volume, and an **MTP speculative-decoding** signal —
+  `tokens_predicted_total / n_decode_total` (≈ tokens accepted per decode; 1.0 = no speculation). Pairs
+  the inference server's `llamacpp:*` metrics with the GPU's VRAM/util on one dashboard.
 - **Agents**: per-model call latency (p50/p95), call volume & outcomes (OpenClaw), tokens + spend +
   prompt-cache hit ratio (LiteLLM), and **per-run traces** in Tempo. A live **agent inventory** table
   updates as agents are added.
@@ -122,7 +133,8 @@ See [docs/agents.md](docs/agents.md) and [docs/dashboards.md](docs/dashboards.md
 - **RAG**: QMD index health (docs, vectors, freshness) per index.
 - **Logs (Loki)**: the OTel Collector's logs pipeline ships Claude Code events to Loki; queryable in
   Grafana. Dashboards are grouped into **Infrastructure** and **AI & Agents** folders.
-- **Alerting**: label-matched rules (host pressure, target-down, NPU/iGPU saturation, model latency,
+- **Alerting**: label-matched rules (host pressure, target-down, NPU saturation, **NVIDIA GPU VRAM >95%
+  / over-temp / saturation**, **inference server down / decode-throughput collapse**, model latency,
   daily spend budget) → Alertmanager → Telegram.
 - **Telegram bot (Grafy)**: text `/graph <dashboard> [range]` to get a rendered dashboard **image +
   key values** on your phone, plus `/values`, `/alerts`, `/list` — chat-locked to you. See
@@ -133,7 +145,7 @@ See [docs/agents.md](docs/agents.md) and [docs/dashboards.md](docs/dashboards.md
 ## Docs
 
 - [Architecture](docs/architecture.md) · [Dashboards](docs/dashboards.md) · [Agents](docs/agents.md) · [Onboarding](docs/onboarding.md)
-- [Hardware (iGPU/NPU + memory)](docs/hardware.md) · [Telegram bot](docs/telegram-bot.md) · [Alerting](docs/alerting.md) · [Security](docs/security.md)
+- [Hardware (iGPU/NPU/NVIDIA GPU + inference metrics)](docs/hardware.md) · [Telegram bot](docs/telegram-bot.md) · [Alerting](docs/alerting.md) · [Security](docs/security.md)
 
 ## Tests
 
