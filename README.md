@@ -15,26 +15,12 @@ New agents, containers, and accelerators **onboard themselves** — no per-targe
 
 ## Demo
 
-Full walkthrough (~45s) — the dashboards end to end:
+Full walkthrough (~72s) — the dashboards end to end: infra (host, accelerators, containers), the
+agents pipeline (cost, tokens, latency, call outcomes, traces, live agent inventory), the **Claude Code
+& RAG** dashboard, and the **QMD Vector Space** (RAG memory corpus + benchmark queries projected to
+2D/3D).
 
-https://github.com/user-attachments/assets/dcd5292b-c909-4bfe-86aa-102e022481ee
-
-Per-pipeline highlights:
-
-**Infra pipeline** — host, accelerators, containers:
-
-![infra pipeline](media/infra-pipeline.gif)
-
-**Agents pipeline** — cost, tokens, latency, call outcomes, traces, live agent inventory, plus the
-**Claude Code & RAG** dashboard (Claude Code token usage / cache / cost, and QMD index health):
-
-![agents pipeline](media/agents-pipeline.gif)
-
-**QMD Vector Space** — the RAG memory corpus + benchmark queries projected to 2D/3D (PCA of the local
-Qwen3 embeddings); docs colored by collection, queries by type (open marker = retrieval miss). Provisioned
-as a Plotly + Infinity dashboard in the "AI & Agents" folder:
-
-![qmd vector space](media/qmd-vector-space.gif)
+https://github.com/user-attachments/assets/ef08dcad-d20c-43eb-aa14-42b8cd2c014c
 
 ## Architecture
 
