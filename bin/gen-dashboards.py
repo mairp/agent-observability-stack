@@ -35,6 +35,14 @@ def stat(title, expr, unit="short", w=6, h=4, x=0, y=0, legend="", thresholds=No
     }
 
 
+def text(title, content, w=24, h=3, x=0, y=0):
+    return {
+        "id": next(_id), "type": "text", "title": title,
+        "gridPos": {"h": h, "w": w, "x": x, "y": y},
+        "options": {"mode": "markdown", "content": content},
+    }
+
+
 def table(title, expr, w=12, h=8, x=0, y=0):
     return {
         "id": next(_id), "type": "table", "title": title, "datasource": PROM,
@@ -331,31 +339,40 @@ rag = [
 ]
 write(dashboard("RAG / Memory (QMD)", "rag", rag, ["ai", "rag"]), "ai-agents")
 
-# ---------------- LLM Inference (llama.cpp + MTP speculative decoding) ----------------
-# llama.cpp server-cuda (RTX 3090) runs with --metrics → llamacpp:* (job "llama-arc"). The MTP
-# speculative-decoding signal = tokens_predicted_total / n_decode_total (≈ tokens accepted per decode;
-# 1.0 = no speculation, >1 = drafts accepted). No llamacpp:kv_cache_* in this build. BASELINE = the
-# measured no-MTP decode tok/s (reference line so the speedup is visible on the throughput panel).
+# ---------------- LLM Inference (RTX 3090 via llama-swap) ----------------
+# The always-on `llama-arc` container was replaced by on-demand `llama-swap` (2026-07-01 migration).
+# llama-swap's /metrics exposes only llamaswap_* SYSTEM + GPU gauges (util/power/temp/VRAM/fan) — NOT
+# the old per-token llamacpp:* decode/prefill/MTP series. Those live on the upstream llama-server
+# behind /upstream/<model> and scraping them would trigger a model load every interval and defeat the
+# idle TTL, so they are intentionally out of scope here. Models load on demand and unload after 900s
+# idle, so utilization/power/VRAM read near-zero when nothing is loaded — expected, not an outage.
 _id = itertools.count(1)
-BASELINE = "41"
-DECODE = 'rate(llamacpp:tokens_predicted_total[1m])/clamp_min(rate(llamacpp:tokens_predicted_seconds_total[1m]),0.001)'
-PREFILL = 'rate(llamacpp:prompt_tokens_total[1m])/clamp_min(rate(llamacpp:prompt_seconds_total[1m]),0.001)'
-ACCEPT = 'rate(llamacpp:tokens_predicted_total[5m])/clamp_min(rate(llamacpp:n_decode_total[5m]),0.001)'
+NOTE = (
+    "RTX 3090 GPU + system telemetry from **llama-swap** (`llamaswap_*` on `llama-swap:8080/metrics`), "
+    "which replaced the always-on `llama-arc` container on 2026-07-01. Models load **on demand** and "
+    "unload after 900s idle, so utilization/power/VRAM read near-zero when nothing is loaded — that is "
+    "expected, not an outage. Per-token decode/prefill/MTP-acceptance metrics (the old `llamacpp:*` "
+    "series) are **not collected**: they live only on the upstream llama-server behind `/upstream/<model>`, "
+    "and scraping that path would trigger a model load every interval and defeat the idle TTL."
+)
 inf = [
-    stat("Decode tok/s (live)", 'llamacpp:predicted_tokens_seconds', "short", 6, 4, 0, 0,
-         thresholds=[{"color": "red", "value": None}, {"color": "orange", "value": 40}, {"color": "green", "value": 50}]),
-    stat("Prefill tok/s (live)", 'llamacpp:prompt_tokens_seconds', "short", 6, 4, 6, 0),
-    stat("MTP tokens/decode", 'llamacpp:tokens_predicted_total/clamp_min(llamacpp:n_decode_total,1)', "short", 6, 4, 12, 0,
-         thresholds=[{"color": "red", "value": None}, {"color": "orange", "value": 1.2}, {"color": "green", "value": 1.6}]),
-    stat("Requests processing", 'llamacpp:requests_processing', "short", 6, 4, 18, 0),
-    ts("Decode throughput (tok/s) vs no-MTP baseline", [(DECODE, "decode tok/s"), (BASELINE, "baseline (no-MTP)")], "short", 12, 8, 0, 4),
-    ts("Prefill throughput (tok/s)", [(PREFILL, "prefill tok/s")], "short", 12, 8, 12, 4),
-    ts("MTP effectiveness — tokens accepted per decode (1.0 = no speculation)", [(ACCEPT, "tokens/decode"), ("1", "no-spec floor")], "short", 12, 8, 0, 12),
-    ts("Requests: processing / deferred", [('llamacpp:requests_processing', "processing"), ('llamacpp:requests_deferred', "deferred")], "short", 12, 8, 12, 12),
-    ts("Token volume (rate)", [('rate(llamacpp:tokens_predicted_total[5m])', "generated tok/s"), ('rate(llamacpp:prompt_tokens_total[5m])', "prompt tok/s")], "short", 12, 8, 0, 20),
-    ts("GPU VRAM: used / free (3090)", [('nvidia_gpu_memory_used_bytes', "used"), ('nvidia_gpu_memory_free_bytes', "free")], "bytes", 12, 8, 12, 20),
+    text("About this dashboard", NOTE, 24, 3, 0, 0),
+    stat("GPU utilization", 'llamaswap_gpu_util_percent', "percent", 6, 4, 0, 3,
+         thresholds=[{"color": "blue", "value": None}, {"color": "green", "value": 5}, {"color": "orange", "value": 90}]),
+    stat("Power draw", 'llamaswap_gpu_power_draw_watts', "watt", 6, 4, 6, 3,
+         thresholds=[{"color": "blue", "value": None}, {"color": "green", "value": 60}, {"color": "orange", "value": 380}]),
+    stat("GPU temperature", 'llamaswap_gpu_temperature_celsius', "celsius", 6, 4, 12, 3,
+         thresholds=[{"color": "green", "value": None}, {"color": "orange", "value": 75}, {"color": "red", "value": 84}]),
+    stat("VRAM used", 'llamaswap_gpu_memory_used_bytes', "bytes", 6, 4, 18, 3,
+         thresholds=[{"color": "blue", "value": None}, {"color": "green", "value": 1000000000}, {"color": "orange", "value": 23000000000}]),
+    ts("GPU utilization (%)", [('llamaswap_gpu_util_percent', "compute"), ('llamaswap_gpu_memory_util_percent', "memory bandwidth")], "percent", 12, 8, 0, 7),
+    ts("Power draw (W)", [('llamaswap_gpu_power_draw_watts', "power draw")], "watt", 12, 8, 12, 7),
+    ts("Temperature (°C) — core / VRAM", [('llamaswap_gpu_temperature_celsius', "core"), ('llamaswap_gpu_vram_temperature_celsius', "vram (0 if unsupported)")], "celsius", 12, 8, 0, 15),
+    ts("Fan speed (%)", [('llamaswap_gpu_fan_speed_percent', "fan")], "percent", 12, 8, 12, 15),
+    ts("GPU VRAM: used / total (3090)", [('nvidia_gpu_memory_used_bytes', "used (node collector)"), ('nvidia_gpu_memory_total_bytes', "total")], "bytes", 12, 8, 0, 23),
+    ts("Host load average", [('llamaswap_load_average', "load avg")], "short", 12, 8, 12, 23),
 ]
-write(dashboard("LLM Inference — llama.cpp + MTP (RTX 3090)", "inference-llama", inf, ["ai", "inference", "llama.cpp", "mtp"], templating=[]), "ai-agents")
+write(dashboard("LLM Inference — llama.cpp + MTP (RTX 3090)", "inference-llama", inf, ["ai", "inference", "llama.cpp", "llama-swap", "gpu"], templating=[]), "ai-agents")
 
 # ---------------- Containers ----------------
 _id = itertools.count(1)

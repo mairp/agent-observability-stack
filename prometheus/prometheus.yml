@@ -74,12 +74,15 @@ scrape_configs:
       type: Bearer
       credentials_file: /etc/prometheus/secrets/litellm_token
 
-  # --- llama.cpp inference server on the RTX 3090 (reached over the shared litellm_default net) ---
-  # Exposes llamacpp:* (decode/prefill tok/s, n_decode_total for the MTP acceptance proxy, queue depth).
-  # No auth on llama-server /metrics; only reachable on the internal docker network.
-  - job_name: llama-arc
+  # --- llama-swap on-demand loader on the RTX 3090 (reached over the shared litellm_default net) ---
+  # Replaced the retired always-on `llama-arc` container (2026-07-01 migration).
+  # Exposes llamaswap_* system + GPU gauges (util/power/temp/VRAM/fan). Per-token llamacpp:*
+  # metrics are NOT scraped here: they live on the upstream llama-server behind
+  # /upstream/<model>, and scraping that path would trigger a model load every interval and
+  # fight the idle TTL. No auth; only reachable on the internal docker network.
+  - job_name: llama-swap
     static_configs:
-      - targets: ["llama-arc:8080"]
+      - targets: ["llama-swap:8080"]
     metrics_path: /metrics
 
   # --- OpenClaw gateway diagnostics ---

@@ -121,21 +121,16 @@ groups:
 
   - name: inference
     rules:
-      - alert: LlamaArcDown
-        expr: up{job="llama-arc"} == 0
-        for: 2m
+      # llama-swap replaced the always-on llama-arc container (2026-07-01). It loads models on
+      # demand and unloads after idle, but the llama-swap process itself stays up — so a DOWN
+      # target means the loader/GPU is actually gone, not just idle.
+      - alert: LlamaSwapDown
+        expr: up{job="llama-swap"} == 0
+        for: 5m
         labels: { severity: critical }
         annotations:
-          summary: "llama.cpp inference server (RTX 3090) /metrics unreachable"
+          summary: "llama-swap loader (RTX 3090) /metrics unreachable — GPU/loader down"
 
-      # Windowed decode tok/s collapses while the server is actively decoding — signals MTP
-      # mis-acceptance, GPU contention, or a stuck slot (baseline is ~41 no-MTP / ~55+ with MTP).
-      - alert: LlamaDecodeCollapse
-        expr: |
-          (rate(llamacpp:tokens_predicted_total[5m])
-             / clamp_min(rate(llamacpp:tokens_predicted_seconds_total[5m]), 0.001)) < 20
-          and rate(llamacpp:n_decode_total[5m]) > 0
-        for: 10m
-        labels: { severity: warning }
-        annotations:
-          summary: "llama.cpp decode throughput <20 tok/s for 10m while actively generating"
+      # NOTE: the old LlamaDecodeCollapse alert (windowed decode tok/s) was retired with the
+      # llama-swap migration — per-token llamacpp:* metrics are no longer scraped (see the
+      # llama-swap scrape-job comment in prometheus.yml).
