@@ -99,14 +99,14 @@ def lstat(title, expr, unit="short", w=6, h=4, x=0, y=0, thresholds=None):
     }
 
 
-def lbar(title, expr, unit="short", w=12, h=8, x=0, y=0):
+def lbar(title, expr, unit="short", w=12, h=8, x=0, y=0, legend="{{agent_type}}"):
     """Bar gauge from a Loki LogQL instant query (e.g. totals by agent_type over the range)."""
     return {
         "id": next(_id), "type": "bargauge", "title": title, "datasource": LOKI,
         "gridPos": {"h": h, "w": w, "x": x, "y": y},
         "fieldConfig": {"defaults": {"unit": unit, "color": {"mode": "palette-classic"}}, "overrides": []},
         "options": {"displayMode": "gradient", "orientation": "horizontal", "reduceOptions": {"calcs": ["lastNotNull"]}},
-        "targets": [{"refId": "A", "datasource": LOKI, "expr": expr, "queryType": "instant", "legendFormat": "{{agent_type}}"}],
+        "targets": [{"refId": "A", "datasource": LOKI, "expr": expr, "queryType": "instant", "legendFormat": legend}],
     }
 
 
@@ -373,6 +373,135 @@ inf = [
     ts("Host load average", [('llamaswap_load_average', "load avg")], "short", 12, 8, 12, 23),
 ]
 write(dashboard("LLM Inference — llama.cpp + MTP (RTX 3090)", "inference-llama", inf, ["ai", "inference", "llama.cpp", "llama-swap", "gpu"], templating=[]), "ai-agents")
+
+# ---------------- Ralph Loops (autonomous Claude Code loops) ----------------
+# Telemetry from utilities/ralph_loop.sh --stream-json (utilities/ralph_loki_ship.py).
+# Loki stream labels (low-cardinality): job="ralph", task, backend, event, model.
+# Per-request numbers (cost_usd, *_tokens, duration_ms, num_turns, is_error) live in the
+# log line as logfmt -> queries do `| logfmt | unwrap <field>`. Events: run_start,
+# iter_start, api_request (one per model turn), tool_use (one per tool call), gate,
+# run_stop, run_end. All totals are over the dashboard range ($__range) = true history.
+_id = itertools.count(1)
+REQ  = '{job="ralph", event="api_request", task=~"$task"}'
+TOOL = '{job="ralph", event="tool_use", task=~"$task"}'
+ITER = '{job="ralph", event="iter_start", task=~"$task"}'
+RUN  = '{job="ralph", event="run_start", task=~"$task"}'
+GATE = '{job="ralph", event="gate", task=~"$task"}'
+RNOTE = (
+    "Autonomous Claude Code **Ralph loops** (`utilities/ralph_loop.sh --stream-json`). Each "
+    "iteration is a fresh headless `claude` run; this dashboard tracks cost, tokens, tool "
+    "use, iteration duration and gate outcomes per run. Use the **task** variable to focus "
+    "one loop. Data is the persistent Loki event stream (`job=\"ralph\"`) over the time range."
+)
+ralph = [
+    text("About this dashboard", RNOTE, 24, 3, 0, 0),
+    lstat("Runs", f'sum(count_over_time({RUN} [$__range]))', "short", 4, 4, 0, 3),
+    lstat("Iterations", f'sum(count_over_time({ITER} [$__range]))', "short", 4, 4, 4, 3),
+    lstat("Cost (range)", f'sum(sum_over_time({REQ} | logfmt | unwrap cost_usd [$__range]))', "currencyUSD", 4, 4, 8, 3),
+    lstat("Output tokens", f'sum(sum_over_time({REQ} | logfmt | unwrap output_tokens [$__range]))', "short", 4, 4, 12, 3),
+    lstat("Tool calls", f'sum(count_over_time({TOOL} [$__range]))', "short", 4, 4, 16, 3),
+    lstat("Errored requests", f'sum(count_over_time({REQ} | logfmt | is_error="true" [$__range]))', "short", 4, 4, 20, 3,
+          thresholds=[{"color": "green", "value": None}, {"color": "orange", "value": 1}, {"color": "red", "value": 5}]),
+    # ----- cost / tokens over time -----
+    lts("Cost by model", [(f'sum by (model)(sum_over_time({REQ} | logfmt | unwrap cost_usd [$__interval]))', "{{model}}")], "currencyUSD", 12, 8, 0, 7, stack=True),
+    lts("Tokens by type", [
+        (f'sum(sum_over_time({REQ} | logfmt | unwrap input_tokens [$__interval]))', "input"),
+        (f'sum(sum_over_time({REQ} | logfmt | unwrap output_tokens [$__interval]))', "output"),
+        (f'sum(sum_over_time({REQ} | logfmt | unwrap cache_read_tokens [$__interval]))', "cacheRead"),
+        (f'sum(sum_over_time({REQ} | logfmt | unwrap cache_creation_tokens [$__interval]))', "cacheCreation")], "short", 12, 8, 12, 7, stack=True),
+    # ----- iteration cost/latency + throughput -----
+    lts("Iteration duration (p95 / p50)", [
+        (f'quantile_over_time(0.95, {REQ} | logfmt | unwrap duration_ms [$__interval])', "p95"),
+        (f'quantile_over_time(0.50, {REQ} | logfmt | unwrap duration_ms [$__interval])', "p50")], "ms", 12, 8, 0, 15),
+    lts("Requests & tool calls (rate)", [
+        (f'sum by (model)(count_over_time({REQ} [$__interval]))', "req {{model}}"),
+        (f'sum(count_over_time({TOOL} [$__interval]))', "tool calls")], "short", 12, 8, 12, 15, stack=True),
+    # ----- breakdowns -----
+    lbar("Tool calls by tool (range)", f'sum by (tool)(count_over_time({TOOL} | logfmt [$__range]))', "short", 8, 8, 0, 23, legend="{{tool}}"),
+    lbar("Cost by task (range)", f'sum by (task)(sum_over_time({REQ} | logfmt | unwrap cost_usd [$__range]))', "currencyUSD", 8, 8, 8, 23, legend="{{task}}"),
+    lbar("Gate outcomes (range)", f'sum by (result)(count_over_time({GATE} | logfmt [$__range]))', "short", 8, 8, 16, 23, legend="{{result}}"),
+    # ----- raw event stream -----
+    logs("Recent Ralph events (run/iter/api_request/tool_use/gate/run_end)", '{job="ralph", task=~"$task"}', 24, 11, 0, 31),
+]
+write(dashboard("Ralph Loops (Claude Code)", "ralph-loops", ralph, ["ai", "claude-code", "ralph"],
+                templating=[var_query("task", 'label_values({job="ralph"}, task)', ds=LOKI)]), "ai-agents")
+
+# ---------------- Agent Mix (12.1 frontier-fading tree) ----------------
+# The fading dashboard. ONE event stream (job="agentops", from agent-pack `agentops emit`) feeds
+# every panel here; the SAME events also drive the kanban board (two sinks, one stream — they can
+# never disagree). Loki stream labels (low-cardinality): job="agentops", event, task. Everything
+# else is logfmt in the line: model, agent, verdict, rung, attempts, tokens_in, tokens_out,
+# wall_ms, dial_state, degraded, reason, contract_id, card, adhoc, task_class.
+#   Events: dispatch (task handed to a leaf), verdict (pass|fail|escalated), escalation (kicked up
+#   the ladder), adhoc (bebop ask — a question, no card). LOCAL model = qwen* ; FRONTIER = the rest
+#   (claude-*, gpt-*). GPU-degraded-by-reason is the ONE Prometheus panel: metric
+#   agentops_gpu_degraded{reason=...} from the S3/H1 watchdog — reason="cpu-fallback" (H1) shows as
+#   its own series so a silent CPU-fallback is visually distinct from a device-health degrade (S3).
+_id = itertools.count(1)
+AOVERD = '{job="agentops", event="verdict", task=~"$task"}'
+AODISP = '{job="agentops", event="dispatch", task=~"$task"}'
+AOESC  = '{job="agentops", event="escalation", task=~"$task"}'
+LOCAL_RE = 'qwen.*'                       # local worker; everything else is frontier
+MNOTE = (
+    "**Frontier-fading agent tree (12.1).** opus plans/verifies, the local qwen worker executes, and "
+    "trust is earned per task-class. Every panel is the persistent Loki event stream "
+    "(`job=\"agentops\"`, one event per dispatch/verdict/escalation) over the dashboard range — the "
+    "**same** events that drive the kanban board. **Local** = `qwen*`; **Frontier** = `claude-*` / "
+    "`gpt-*`. The goal of fading is the two numbers up top moving in opposite directions: local task "
+    "share **up**, frontier tokens (cost proxy) **down**, without local-first pass-rate dropping below "
+    "the promotion bar (0.85). GPU-degraded is split **by reason** so a silent CPU-fallback (H1, "
+    "`reason=cpu-fallback`) reads distinctly from a device-health degrade (S3)."
+)
+mix = [
+    text("About this dashboard", MNOTE, 24, 4, 0, 0),
+    # ----- headline stats over the range -----
+    lstat("Tasks completed", f'sum(count_over_time({AOVERD} [$__range]))', "short", 6, 4, 0, 4),
+    lstat("Local task share",
+          f'sum(count_over_time({AOVERD} | logfmt | model=~`{LOCAL_RE}` [$__range])) '
+          f'/ sum(count_over_time({AOVERD} | logfmt [$__range]))',
+          "percentunit", 6, 4, 6, 4,
+          thresholds=[{"color": "red", "value": None}, {"color": "orange", "value": 0.5}, {"color": "green", "value": 0.8}]),
+    lstat("Escalation rate",
+          f'sum(count_over_time({AOESC} [$__range])) '
+          f'/ sum(count_over_time({AODISP} [$__range]))',
+          "percentunit", 6, 4, 12, 4,
+          thresholds=[{"color": "green", "value": None}, {"color": "orange", "value": 0.2}, {"color": "red", "value": 0.4}]),
+    stat("GPU degraded now", 'max(agentops_gpu_degraded) or vector(0)', "short", 6, 4, 18, 4,
+         thresholds=[{"color": "green", "value": None}, {"color": "red", "value": 1}]),
+    # ----- frontier share: tokens + task counts, local vs frontier -----
+    lts("Tokens: local vs frontier (cost proxy)", [
+        (f'sum(sum_over_time({AOVERD} | logfmt | model=~`{LOCAL_RE}` | unwrap tokens_out [$__interval]))', "local (qwen)"),
+        (f'sum(sum_over_time({AOVERD} | logfmt | model!~`{LOCAL_RE}` | unwrap tokens_out [$__interval]))', "frontier (claude/gpt)")],
+        "short", 12, 8, 0, 8, stack=True),
+    lts("Task mix: local vs frontier (count)", [
+        (f'sum(count_over_time({AOVERD} | logfmt | model=~`{LOCAL_RE}` [$__interval]))', "local (qwen)"),
+        (f'sum(count_over_time({AOVERD} | logfmt | model!~`{LOCAL_RE}` [$__interval]))', "frontier (claude/gpt)")],
+        "short", 12, 8, 12, 8, stack=True),
+    # ----- the fading metrics, BY task-class -----
+    lbar("Local-first pass rate by class (promote ≥ 0.85)",
+         f'sum by (task)(count_over_time({AOVERD} | logfmt | model=~`{LOCAL_RE}` | verdict=`pass` | attempts=`1` [$__range])) '
+         f'/ sum by (task)(count_over_time({AOVERD} | logfmt | model=~`{LOCAL_RE}` [$__range]))',
+         "percentunit", 12, 8, 0, 16, legend="{{task}}"),
+    lbar("Escalation rate by class",
+         f'sum by (task)(count_over_time({AOESC} [$__range])) '
+         f'/ sum by (task)(count_over_time({AODISP} [$__range]))',
+         "percentunit", 12, 8, 12, 16, legend="{{task}}"),
+    # ----- dial position + cost proxy breakdown -----
+    lbar("Tasks by dial position (fading state)",
+         f'sum by (dial_state)(count_over_time({AOVERD} | logfmt [$__range]))',
+         "short", 12, 8, 0, 24, legend="{{dial_state}}"),
+    lbar("Frontier tokens by model (range) — cost proxy",
+         f'sum by (model)(sum_over_time({AOVERD} | logfmt | model!~`{LOCAL_RE}` | unwrap tokens_out [$__range]))',
+         "short", 12, 8, 12, 24, legend="{{model}}"),
+    # ----- GPU degraded windows, SPLIT BY reason (H1: cpu-fallback distinct from S3 device-health) -----
+    ts("GPU degraded windows (by reason) — cpu-fallback = H1, others = S3 device-health",
+       [('agentops_gpu_degraded', "{{reason}}")], "short", 24, 7, 0, 32),
+    # ----- raw event stream -----
+    logs("Recent agent-pack events (dispatch / verdict / escalation / adhoc)",
+         '{job="agentops", task=~"$task"}', 24, 11, 0, 39),
+]
+write(dashboard("Agent Mix — Frontier Fading (12.1)", "agent-mix", mix, ["ai", "agents", "12.1", "fading"],
+                templating=[var_query("task", 'label_values({job="agentops"}, task)', ds=LOKI)]), "ai-agents")
 
 # ---------------- Containers ----------------
 _id = itertools.count(1)
