@@ -95,6 +95,7 @@ services:
       # browser-reachable Grafana base for clickable links (kept in gitignored .env, not the public repo)
       GRAFANA_PUBLIC_URL: ${GRAFANA_PUBLIC_URL:-}
       PROM_URL: "http://prometheus:9090"
+      LOKI_URL: "http://loki:3100"
     depends_on: [grafana, prometheus, grafana-image-renderer]
 
   tempo:
