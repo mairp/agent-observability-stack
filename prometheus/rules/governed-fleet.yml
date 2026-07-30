@@ -1,0 +1,51 @@
+# Governed-fleet (15.1) alert rules — the operational-readiness alerting for the
+# governed run lifecycle (roadmap 15.1 Phase 13 (B)). Loaded by prometheus.yml's
+# rule_files glob (/etc/prometheus/rules/*.yml). Two rules cover the two failure
+# modes the RUNBOOK's recovery procedures address:
+#
+#   ControllerDown       — the governance HTTP API (:5080) stopped answering. Every
+#                          governed hop (packet mint, PMO gate, signed approval,
+#                          gated resume) goes through it, so a down controller means
+#                          the whole chain is frozen. Backed by the blackbox HTTP
+#                          probe of workflow-controller:5080/healthz (probe target
+#                          added to prometheus/targets/blackbox-http.yml).
+#   GovernedRunStuckAwaitingHuman — a run has sat in awaiting_human longer than its
+#                          escalation deadline. This is the spec's second suggested
+#                          alert (a run stuck past its escalation deadline). It fires
+#                          on the controller-exported gauge
+#                          governed_run_awaiting_human_overdue (published to the
+#                          node_exporter textfile collector by bin/governed-health.sh
+#                          / the reproject cron); absent the gauge the rule is simply
+#                          inactive, never a false page.
+groups:
+  - name: governed-fleet
+    rules:
+      # The governance API is the spine of the chain. blackbox-http probes
+      # http://workflow-controller:5080/healthz over the shared observability_obs
+      # network; probe_success==0 means the controller is unreachable/unhealthy.
+      - alert: ControllerDown
+        expr: probe_success{instance="http://workflow-controller:5080/healthz"} == 0
+        for: 2m
+        labels: { severity: critical, fleet: governed }
+        annotations:
+          summary: "Governed controller (:5080) down — the governance chain is frozen"
+          description: >-
+            The blackbox HTTP probe of the workflow-controller /healthz endpoint has
+            been failing for 2m. No run can mint a packet, pass the PMO gate, be
+            approved, or resume while it is down. Recovery: RUNBOOK.md §"Recover each
+            organ" -> controller (docker compose ... up -d workflow-controller).
+
+      # A governed run parked at the human boundary that has blown past its escalation
+      # deadline. governed_run_awaiting_human_overdue is a gauge = number of runs whose
+      # oldest open escalation deadline_at is in the past; > 0 means a human decision is
+      # overdue (bounded-recovery contract violated in wall-clock terms).
+      - alert: GovernedRunStuckAwaitingHuman
+        expr: governed_run_awaiting_human_overdue > 0
+        for: 5m
+        labels: { severity: warning, fleet: governed }
+        annotations:
+          summary: "{{ $value }} governed run(s) stuck in awaiting_human past the escalation deadline"
+          description: >-
+            One or more runs have been in awaiting_human longer than their escalation
+            deadline_at. A signed approval or rejection is required to release them.
+            See RUNBOOK.md §"Approve or reject a run".
