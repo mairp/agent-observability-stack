@@ -1,0 +1,35 @@
+{
+  "uid": "litellm-models",
+  "title": "Models — LiteLLM Inventory",
+  "tags": ["ai", "litellm"],
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "30s",
+  "time": {"from": "now-6h", "to": "now"},
+  "timezone": "browser",
+  "panels": [
+    {
+      "id": 1,
+      "type": "table",
+      "title": "Configured models (LiteLLM /v1/models)",
+      "datasource": {"type": "yesoreyeram-infinity-datasource", "uid": "litellm-infinity"},
+      "gridPos": {"h": 18, "w": 24, "x": 0, "y": 0},
+      "targets": [
+        {
+          "refId": "A",
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "url": "http://litellm:4000/v1/models",
+          "root_selector": "data",
+          "columns": [
+            {"selector": "id", "text": "Model", "type": "string"},
+            {"selector": "owned_by", "text": "Owner", "type": "string"}
+          ]
+        }
+      ],
+      "options": {"showHeader": true}
+    }
+  ]
+}

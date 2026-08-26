@@ -1,6 +1,6 @@
 {
   "uid": "inference-llama",
-  "title": "LLM Inference \u2014 llama-swap / llama.cpp (RTX 3090)",
+  "title": "LLM Inference \u2014 llama.cpp + MTP (RTX 3090)",
   "tags": [
     "ai",
     "inference",
@@ -9,7 +9,7 @@
     "gpu"
   ],
   "schemaVersion": 39,
-  "version": 2,
+  "version": 1,
   "editable": true,
   "refresh": "30s",
   "time": {
@@ -30,7 +30,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "RTX 3090 GPU + system telemetry from **llama-swap** (`llamaswap_*` on `llama-swap:8080/metrics`), which replaced the always-on `llama-arc` container on 2026-07-01. Models load **on demand** and unload after 900s idle, so utilization/power/VRAM read near-zero when nothing is loaded \u2014 that is expected, not an outage. Per-token decode/prefill/MTP-acceptance metrics (the old `llamacpp:*` series) are **not collected**: they live only on the upstream llama-server behind `/upstream/<model>`, and scraping that path would trigger a model load every interval and defeat the idle TTL. The **loaded-model** panel below comes from the host textfile collector polling llama-swap `/running` (load-free); **qwen-auto routing** comes from the LiteLLM custom hook counter `qwen_auto_route_total`."
+        "content": "RTX 3090 GPU + system telemetry from **llama-swap** (`llamaswap_*` on `llama-swap:8080/metrics`), which replaced the always-on `llama-arc` container on 2026-07-01. Models load **on demand** and unload after 900s idle, so utilization/power/VRAM read near-zero when nothing is loaded \u2014 that is expected, not an outage. Per-token decode/prefill/MTP-acceptance metrics (the old `llamacpp:*` series) are **not collected**: they live only on the upstream llama-server behind `/upstream/<model>`, and scraping that path would trigger a model load every interval and defeat the idle TTL."
       }
     },
     {
@@ -613,119 +613,6 @@
           },
           "expr": "llamaswap_load_average",
           "legendFormat": "load avg"
-        }
-      ]
-    },
-    {
-      "id": 20,
-      "type": "state-timeline",
-      "title": "Loaded model (llama-swap)",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 12,
-        "x": 0,
-        "y": 31
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "fillOpacity": 70,
-            "lineWidth": 0
-          },
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "0": {
-                  "text": "unloaded",
-                  "color": "transparent"
-                },
-                "1": {
-                  "text": "loaded",
-                  "color": "green"
-                }
-              }
-            }
-          ],
-          "max": 1,
-          "min": 0
-        },
-        "overrides": []
-      },
-      "options": {
-        "showValue": "never",
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "single"
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "max by (model) (llamaswap_model_loaded)",
-          "legendFormat": "{{model}}"
-        }
-      ]
-    },
-    {
-      "id": 21,
-      "type": "timeseries",
-      "title": "qwen-auto routing decisions (per hour)",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 12,
-        "x": 12,
-        "y": 31
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "drawStyle": "bars",
-            "fillOpacity": 60,
-            "stacking": {
-              "mode": "normal"
-            }
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "sum"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum by (target, reason) (increase(qwen_auto_route_total[1h]))",
-          "legendFormat": "{{target}} ({{reason}})"
         }
       ]
     }

@@ -41,6 +41,35 @@ exporters:
     endpoint: http://loki:3100/otlp
     tls:
       insecure: true
+  # Governed-fleet spans -> ClickHouse (15.1 Phase 4). Writes to the collector-compatible
+  # Null ingest table `spans_otlp_ingest_v1`; the materialized view projects ONLY
+  # allowlisted metadata into the queryable `spans_v1`. The schema is applied by the
+  # clickhouse service's init scripts (create_schema:false here — the collector never
+  # owns DDL). Connects to the sibling service on the CONTAINER-internal native port 9000
+  # (host publishes the banded 5190); credentials are the inlined dev defaults below.
+  clickhouse:
+    endpoint: tcp://clickhouse:9000?dial_timeout=5s
+    database: workflow_otel
+    # Non-secret dev defaults, inlined here so the exporter lives ENTIRELY in this
+    # bind-mounted file — adding the ClickHouse sink needs only a collector restart
+    # (config re-read), never a container recreate, so the pre-existing collector
+    # keeps its identity (15.1 Phase 4 / standing rule 10). Override in any non-local
+    # environment by editing this file (it is the single source for the exporter).
+    username: default
+    password: ""
+    create_schema: false
+    async_insert: true
+    compress: lz4
+    # Only the traces pipeline exports to ClickHouse (spans land in the Null ingest
+    # table; the MV projects allowlisted metadata into spans_v1). Logs/metrics keep
+    # their existing Loki/Prometheus sinks, so no logs/metrics table config is set.
+    traces_table_name: spans_otlp_ingest_v1
+    timeout: 5s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 30s
+      max_elapsed_time: 300s
   debug:
     verbosity: basic
 
@@ -52,7 +81,7 @@ service:
     traces:
       receivers: [otlp]
       processors: [memory_limiter, attributes/scrub, batch]
-      exporters: [otlp/tempo]
+      exporters: [otlp/tempo, clickhouse]
     metrics:
       receivers: [otlp]
       processors: [memory_limiter, batch]
