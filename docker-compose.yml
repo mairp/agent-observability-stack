@@ -22,6 +22,7 @@ volumes:
   tempo_data:
   alertmanager_data:
   loki_data:
+  clickhouse_data:
 
 services:
   prometheus:
@@ -50,10 +51,11 @@ services:
   grafana:
     <<: *restart
     image: grafana/grafana:11.2.0
-    networks: [obs]
+    networks: [obs, litellm_default]
     ports:
       - "3000:3000"
     environment:
+      LITELLM_BEARER: ${LITELLM_BEARER:-}
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
       GF_USERS_ALLOW_SIGN_UP: "false"
@@ -131,6 +133,41 @@ services:
     volumes:
       - ./otel-collector/config.yaml:/etc/otelcol/config.yaml:ro
     depends_on: [tempo, loki]
+
+  # ClickHouse — the span/trace analytics store for the governed fleet (15.1 Phase 4).
+  # Lives HERE in the observability stack (standing rule 10: reuse the collector that
+  # already runs here; do NOT stand up a second collector or ClickHouse elsewhere).
+  # Published on the registry's BANDED ports only — HTTP 5123, native 5190 — never the
+  # ClickHouse defaults 8123/9000 (the container keeps 8123/9000 internally; only the
+  # host publish is banded). Ports trace to ~/fleet-config/registry/ports.yaml
+  # (clickhouse_http / clickhouse_native), carried in ./clickhouse.env.
+  clickhouse:
+    <<: *restart
+    image: clickhouse/clickhouse-server:24.8-alpine
+    networks: [obs]
+    environment:
+      CLICKHOUSE_USER: ${CLICKHOUSE_USERNAME:-default}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-}
+      # allow the default user to run DDL from the mounted init scripts
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    env_file: [./clickhouse.env]
+    ports:
+      # host publish = registry banded ports; container = ClickHouse defaults.
+      - "${CLICKHOUSE_HTTP_PORT}:8123"     # HTTP  <- registry ports.yaml: clickhouse_http (5123)
+      - "${CLICKHOUSE_NATIVE_PORT}:9000"   # native <- registry ports.yaml: clickhouse_native (5190)
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      # Versioned OTel analytics schema (spans_v1 + ingest MV), applied on first init.
+      - ./clickhouse/init:/docker-entrypoint-initdb.d:ro
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:8123/ping || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
 
   alertmanager:
     <<: *restart
