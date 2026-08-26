@@ -1,12 +1,12 @@
 {
   "uid": "llm-cost",
-  "title": "LLM Cost & Consumption",
+  "title": "LLM Cost & Consumption (Unified)",
   "tags": [
     "ai",
     "cost"
   ],
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "editable": true,
   "refresh": "30s",
   "time": {
@@ -18,7 +18,7 @@
     {
       "id": 1,
       "type": "stat",
-      "title": "Claude Code spend (range)",
+      "title": "Spend (range) by service",
       "datasource": {
         "type": "loki",
         "uid": "loki"
@@ -63,7 +63,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum(sum_over_time({service_name=\"claude-code\"} | event_name=`api_request` | unwrap cost_usd [$__range]))",
+          "expr": "sum by (service_name)(sum_over_time({service_name=~\"$service\"} | event_name=`api_request` | unwrap cost_usd [$__range]))",
           "queryType": "instant"
         }
       ]
@@ -71,7 +71,7 @@
     {
       "id": 2,
       "type": "stat",
-      "title": "Claude Code requests",
+      "title": "Requests (range) by service",
       "datasource": {
         "type": "loki",
         "uid": "loki"
@@ -116,7 +116,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum(count_over_time({service_name=\"claude-code\"} | event_name=`api_request` [$__range]))",
+          "expr": "sum by (service_name)(count_over_time({service_name=~\"$service\"} | event_name=`api_request` [$__range]))",
           "queryType": "instant"
         }
       ]
@@ -177,7 +177,7 @@
     {
       "id": 4,
       "type": "timeseries",
-      "title": "Claude Code spend by model",
+      "title": "Spend by model (selected services)",
       "datasource": {
         "type": "loki",
         "uid": "loki"
@@ -221,8 +221,8 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum by (model)(sum_over_time({service_name=\"claude-code\"} | event_name=`api_request` | unwrap cost_usd [$__interval]))",
-          "legendFormat": "{{model}}",
+          "expr": "sum by (service_name, model)(sum_over_time({service_name=~\"$service\"} | event_name=`api_request` | unwrap cost_usd [$__interval]))",
+          "legendFormat": "{{service_name}} / {{model}}",
           "queryType": "range"
         }
       ]
@@ -282,7 +282,7 @@
     {
       "id": 6,
       "type": "timeseries",
-      "title": "Claude Code tokens by type",
+      "title": "Tokens by type (selected services)",
       "datasource": {
         "type": "loki",
         "uid": "loki"
@@ -326,7 +326,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum(sum_over_time({service_name=\"claude-code\"} | event_name=`api_request` | unwrap input_tokens [$__interval]))",
+          "expr": "sum by (service_name)(sum_over_time({service_name=~\"$service\"} | event_name=`api_request` | unwrap input_tokens [$__interval]))",
           "legendFormat": "input",
           "queryType": "range"
         },
@@ -336,7 +336,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum(sum_over_time({service_name=\"claude-code\"} | event_name=`api_request` | unwrap output_tokens [$__interval]))",
+          "expr": "sum by (service_name)(sum_over_time({service_name=~\"$service\"} | event_name=`api_request` | unwrap output_tokens [$__interval]))",
           "legendFormat": "output",
           "queryType": "range"
         },
@@ -346,7 +346,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum(sum_over_time({service_name=\"claude-code\"} | event_name=`api_request` | unwrap cache_read_tokens [$__interval]))",
+          "expr": "sum by (service_name)(sum_over_time({service_name=~\"$service\"} | event_name=`api_request` | unwrap cache_read_tokens [$__interval]))",
           "legendFormat": "cacheRead",
           "queryType": "range"
         }
@@ -416,7 +416,7 @@
     {
       "id": 8,
       "type": "bargauge",
-      "title": "Claude Code cache-read tokens by model (range)",
+      "title": "Cache-read tokens by model (selected services)",
       "datasource": {
         "type": "loki",
         "uid": "loki"
@@ -452,9 +452,9 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum by (model)(sum_over_time({service_name=\"claude-code\"} | event_name=`api_request` | unwrap cache_read_tokens [$__range]))",
+          "expr": "sum by (service_name, model)(sum_over_time({service_name=~\"$service\"} | event_name=`api_request` | unwrap cache_read_tokens [$__range]))",
           "queryType": "instant",
-          "legendFormat": "{{agent_type}}"
+          "legendFormat": "{{service_name}} / {{model}}"
         }
       ]
     },
@@ -493,13 +493,29 @@
   "templating": {
     "list": [
       {
+        "name": "service",
+        "type": "query",
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "query": "label_values({event_name=\"api_request\"}, service_name)",
+        "includeAll": true,
+        "multi": true,
+        "refresh": 2,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
+      },
+      {
         "name": "model",
         "type": "query",
         "datasource": {
           "type": "prometheus",
           "uid": "prometheus"
         },
-        "query": "label_values(litellm_spend_metric_total, model)",
+        "query": "label_values(litellm_model_info, model)",
         "includeAll": true,
         "multi": true,
         "refresh": 2,

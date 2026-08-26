@@ -1,12 +1,12 @@
 {
   "uid": "claude-code",
-  "title": "Claude Code",
+  "title": "Claude Code (Archived)",
   "tags": [
     "ai",
     "claude-code"
   ],
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "editable": true,
   "refresh": "30s",
   "time": {

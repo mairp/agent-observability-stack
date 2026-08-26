@@ -1,12 +1,12 @@
 {
   "uid": "agents-composite",
-  "title": "Agents — Claude Code vs pi",
+  "title": "Agents — Harness comparison (Claude Code / pi / dsh / prime)",
   "tags": [
     "ai",
     "composite"
   ],
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "editable": true,
   "refresh": "30s",
   "time": {
