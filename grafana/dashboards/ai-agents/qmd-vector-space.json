@@ -38,80 +38,621 @@
         "x": 0,
         "y": 3
       },
-      "datasource": {
-        "type": "yesoreyeram-infinity-datasource",
-        "uid": "qmd-infinity"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "type": "json",
-          "source": "inline",
-          "format": "table",
-          "data": "[{\"label\":\"claude-memory-dir/MEMORY.md\",\"kind\":\"doc\",\"collection\":\"claude-memory-dir\",\"type\":\"doc\",\"tier_reached\":\"\",\"hit\":null,\"x\":0.4618722304478179,\"y\":0.12061494798624108,\"z\":0.1466325676988106},{\"label\":\"claude-memory-dir/feedback/git-commit-identity-and-signoff.md\",\"kind\":\"doc\",\"collection\":\"claude-memory-dir\",\"type\":\"doc\",\"tier_reached\":\"\",\"hit\":null,\"x\":0.4473132092976214,\"y\":-0.1103124827099791,\"z\":-0.21904625388675034},{\"label\":\"claude-memory-dir/feedback/prefix-replies-with-pipe.md\",\"kind\":\"doc\",\"collection\":\"claude-memory-dir\",\"type\":\"doc\",\"tier_reached\":\"\",\"hit\":null,\"x\":0.3639629969424931,\"y\":-0.012682182086646218,\"z\":-0.1609663086030651},{\"label\":\"claude-memory-dir/infra/agent-observability-stack.md\",\"kind\":\"doc\",\"collection\":\"claude-memory-dir\",\"type\":\"doc\",\"tier_reached\":\"\",\"hit\":null,\"x\":0.4624156472944578,\"y\":-0.07754386689162546,\"z\":0.011104979108491012},{\"label\":\"claude-memory-dir/infra/claude-kanban-workflow.md\",\"kind\":\"doc\",\"collection\":\"claude-memory-dir\",\"type\":\"doc\",\"tier_reached\":\"\",\"hit\":null,\"x\":0.3903616203781064,\"y\":-0.11765166391140491,\"z\":-0.10135392379375022},{\"label\":\"claude-memory-dir/infra/claude-qmd-memory.md\",\"kind\":\"doc\",\"collection\":\"claude-memory-dir\",\"type\":\"doc\",\"tier_reached\":\"\",\"hit\":null,\"x\":0.11322166139412258,\"y\":0.15883021689122043,\"z\":0.1532613786824318}]",
-          "root_selector": "",
-          "columns": [
-            {
-              "selector": "x",
-              "text": "x",
-              "type": "number"
-            },
-            {
-              "selector": "y",
-              "text": "y",
-              "type": "number"
-            },
-            {
-              "selector": "z",
-              "text": "z",
-              "type": "number"
-            },
-            {
-              "selector": "label",
-              "text": "label",
-              "type": "string"
-            },
-            {
-              "selector": "kind",
-              "text": "kind",
-              "type": "string"
-            },
-            {
-              "selector": "collection",
-              "text": "collection",
-              "type": "string"
-            },
-            {
-              "selector": "type",
-              "text": "type",
-              "type": "string"
-            },
-            {
-              "selector": "tier_reached",
-              "text": "tier_reached",
-              "type": "string"
-            },
-            {
-              "selector": "hit",
-              "text": "hit",
-              "type": "string"
-            }
-          ],
-          "datasource": {
-            "type": "yesoreyeram-infinity-datasource",
-            "uid": "qmd-infinity"
-          }
-        }
-      ],
+      "datasource": null,
+      "targets": [],
       "options": {
-        "script": "const f = data.series[0];\nconst get = (n) => { const fld = f.fields.find(x => x.name === n); return fld ? fld.values.toArray ? fld.values.toArray() : fld.values : []; };\nconst X=get('x'), Y=get('y'), Z=get('z'), L=get('label'), K=get('kind'), C=get('collection'), T=get('type'), H=get('hit');\nconst COLL={'claude-memory-dir':'#4e79a7','claude-memory-root':'#a0cbe8','openclaw-memory-dir':'#59a14f','openclaw-memory-root':'#8cd17d'};\nconst TYPE={exact:'#e15759',semantic:'#f28e2b',topical:'#b07aa1',alias:'#76b7b2','cross-domain':'#ff9da7'};\nconst traces=[]; const is3d=false;\nconst groups={};\nfor(let i=0;i<X.length;i++){ const isq=K[i]==='query'; const key=isq?('query: '+T[i]):('doc: '+C[i]); (groups[key]??=[]).push(i); }\nfor(const [name,idx] of Object.entries(groups)){\n  const isq=name.startsWith('query');\n  const tr={name, mode:'markers', type=is3d?'scatter3d':'scattergl',\n    x:idx.map(i=>X[i]), y:idx.map(i=>Y[i]),\n    text:idx.map(i=>L[i]+(isq?('<br>type='+T[i]+' hit='+H[i]):'')), hoverinfo:'text',\n    marker:{ size:isq?11:5, opacity=isq?1:0.55,\n      color: isq?(TYPE[T[idx[0]]]||'#000'):(COLL[C[idx[0]]]||'#bab0ac'),\n      symbol: isq?idx.map(i=>String(H[i])==='false'?'circle-open':'diamond'):'circle',\n      line: isq?{width:1.5,color:'#222'}:undefined } };\n  if(is3d) tr.z=idx.map(i=>Z[i]);\n  traces.push(tr);\n}\nreturn { data:traces, layout:{ margin:{l:0,r:0,t:10,b:0}, legend:{itemsizing:'constant'},\n  scene:{xaxis:{title:'PC1'},yaxis:{title:'PC2'},zaxis:{title:'PC3'}}, xaxis:{title:'PC1'}, yaxis:{title:'PC2'} } };",
+        "script": "",
         "onclick": "",
-        "layout": {},
+        "data": [
+          {
+            "name": "doc: claude-memory-dir",
+            "type": "scatter",
+            "mode": "markers",
+            "x": [
+              0.4618722304478179,
+              0.4473132092976214,
+              0.3639629969424931,
+              0.4624156472944578,
+              0.3903616203781064,
+              0.11322166139412258,
+              0.38995265013840735,
+              0.2548547145146583,
+              0.4879968670629399,
+              0.527783335495958,
+              0.44497480296373393,
+              0.4125273578206518,
+              0.4315745735940099,
+              0.3222363853068661,
+              0.31346493182593765,
+              0.41003357738037177,
+              0.3503116324462868,
+              0.4255715011386264,
+              0.35988720038339944,
+              0.4414439366197125
+            ],
+            "y": [
+              0.12061494798624108,
+              -0.1103124827099791,
+              -0.012682182086646218,
+              -0.07754386689162546,
+              -0.11765166391140491,
+              0.15883021689122043,
+              0.11254242392889267,
+              0.1590986705746641,
+              -0.10849714582756229,
+              -0.1595615649201719,
+              -0.16383920214905748,
+              -0.0929121765422328,
+              -0.13518423314111247,
+              -0.018456757462380766,
+              0.09543688478779631,
+              -0.054098543679037506,
+              0.15221607281969307,
+              -0.05852310910700488,
+              -0.05630352728728797,
+              -0.045245658484905915
+            ],
+            "text": [
+              "claude-memory-dir/MEMORY.md",
+              "claude-memory-dir/feedback/git-commit-identity-and-signoff.md",
+              "claude-memory-dir/feedback/prefix-replies-with-pipe.md",
+              "claude-memory-dir/infra/agent-observability-stack.md",
+              "claude-memory-dir/infra/claude-kanban-workflow.md",
+              "claude-memory-dir/infra/claude-qmd-memory.md",
+              "claude-memory-dir/infra/compass-stage-gateway-and-cc-shim.md",
+              "claude-memory-dir/infra/core42-compass-capabilities.md",
+              "claude-memory-dir/infra/cws-yangsuite-vm.md",
+              "claude-memory-dir/infra/docker-egress-firewall.md",
+              "claude-memory-dir/infra/dualboot-box-ssh.md",
+              "claude-memory-dir/infra/fleet-control-plane.md",
+              "claude-memory-dir/infra/kanban-netops-integration.md",
+              "claude-memory-dir/infra/linky-linkedin-agent.md",
+              "claude-memory-dir/infra/local-arc-inference-qwen3.md",
+              "claude-memory-dir/infra/openclaw-exec-approval-shell-substitution.md",
+              "claude-memory-dir/infra/openclaw-on-host-setup.md",
+              "claude-memory-dir/infra/portfolio-sync-automation.md",
+              "claude-memory-dir/projects/digital-twin-career-agent.md",
+              "claude-memory-dir/projects/public-agent-demo-repos.md"
+            ],
+            "hoverinfo": "text",
+            "marker": {
+              "size": 5,
+              "opacity": 0.55,
+              "color": "#4e79a7",
+              "symbol": "circle"
+            }
+          },
+          {
+            "name": "doc: claude-memory-root",
+            "type": "scatter",
+            "mode": "markers",
+            "x": [
+              0.4618722304478179
+            ],
+            "y": [
+              0.12061494798624108
+            ],
+            "text": [
+              "claude-memory-root/MEMORY.md"
+            ],
+            "hoverinfo": "text",
+            "marker": {
+              "size": 5,
+              "opacity": 0.55,
+              "color": "#a0cbe8",
+              "symbol": "circle"
+            }
+          },
+          {
+            "name": "doc: openclaw-memory-dir",
+            "type": "scatter",
+            "mode": "markers",
+            "x": [
+              0.1388564361169336,
+              0.04624793015442986,
+              -0.12704665388500808,
+              -0.17008817395605447,
+              -0.27804580019606395,
+              -0.18013844107290633,
+              -0.24895922465428483,
+              -0.04576593649819943,
+              -0.27550366750357336,
+              -0.32727153644644424,
+              -0.3184489955560138,
+              -0.32880218674842315,
+              -0.32244726590286055,
+              -0.3170565998028591,
+              -0.351904265477477,
+              -0.28108653073609957,
+              -0.2674607656107679,
+              -0.15001484777489787,
+              -0.2484163957982212,
+              -0.2981039006328432,
+              -0.29985074687026503,
+              -0.3710333473191182,
+              -0.3710333473191182,
+              -0.37812933217560624,
+              -0.37677108722189445,
+              -0.37345821590017614,
+              -0.37639773104350305,
+              -0.368848816686922,
+              -0.3697386753448932,
+              -0.3716019640586953,
+              -0.3716019640586953,
+              -0.3716019640586953,
+              -0.3716019640586953,
+              -0.3716019640586953,
+              -0.3716019640586953,
+              -0.3716019640586953,
+              -0.3716019640586953,
+              -0.3716019640586953,
+              -0.3716019640586953,
+              -0.3716019640586953,
+              0.16221666671554738,
+              0.08595973655389501,
+              -0.13356057862435333,
+              -0.16491856824157602,
+              -0.31043818192703554,
+              -0.18127578072624745,
+              -0.24414084291370608,
+              0.001292984396463439,
+              -0.27157032239841816,
+              -0.341812149940789,
+              -0.32244711277101007,
+              -0.3319397038057295,
+              -0.30610222289036804,
+              -0.301549503588719,
+              -0.3268652147207176,
+              -0.26810310850262303,
+              -0.2705210439381371,
+              -0.1977256280770259,
+              -0.23082964104317943,
+              -0.25291648734777494,
+              -0.11086822374812254,
+              -0.17802530518012044,
+              -0.17829048395281955,
+              -0.1828131896400817,
+              -0.1154429999660755,
+              -0.13348640886402538,
+              -0.12562866366762435,
+              -0.12562866366762435,
+              -0.12562866366762435,
+              -0.12562866366762435,
+              -0.20809035624723726,
+              -0.16393486192722415,
+              -0.1557063087433385,
+              -0.17045796312231953,
+              -0.17543255410802897,
+              -0.16101684025829105,
+              -0.17820814181661093,
+              -0.15363508362544348,
+              -0.24101284026558048,
+              -0.2410843504155431
+            ],
+            "y": [
+              0.2664564144876654,
+              0.20252889617554773,
+              0.24956311054194874,
+              0.11939364516080733,
+              0.1988690467661671,
+              0.2830215080362304,
+              0.26006168644171407,
+              0.2202065061339684,
+              0.2457247226366536,
+              0.23319506734041598,
+              0.2242049517140992,
+              0.2565551346657065,
+              0.1755987107659615,
+              0.1468576894939262,
+              0.18119487503760703,
+              0.14245765861177678,
+              0.23809733236716665,
+              0.12771780605099853,
+              0.139408694544537,
+              0.16814966462007694,
+              -0.3535404458554805,
+              -0.5455240739867906,
+              -0.5455240739867906,
+              -0.5675151343958776,
+              -0.5638838122878187,
+              -0.5653709688991195,
+              -0.5513498307266659,
+              -0.5675137977422187,
+              -0.5675610979261462,
+              -0.5677528025265661,
+              -0.5677528025265661,
+              -0.5677528025265661,
+              -0.5677528025265661,
+              -0.5677528025265661,
+              -0.5677528025265661,
+              -0.5677528025265661,
+              -0.5677528025265661,
+              -0.5677528025265661,
+              -0.5677528025265661,
+              -0.5677528025265661,
+              0.15917089860105713,
+              0.16808168141871568,
+              0.24171866026426822,
+              0.1066327042313946,
+              0.2052785645847272,
+              0.26830255298809824,
+              0.27223763013052016,
+              0.21626533516598345,
+              0.2614199106040702,
+              0.20462766561570625,
+              0.2025922923329117,
+              0.232207647354789,
+              0.16603246734161584,
+              0.15273996255732114,
+              0.21167088808511714,
+              0.11467420945187283,
+              0.23020297912122045,
+              0.15201361114204903,
+              0.12201233146351255,
+              0.11261673492717247,
+              0.3036595485884854,
+              0.2873243793842016,
+              0.28757714266325424,
+              0.3035726017433375,
+              0.3413323874862913,
+              0.3463324557750306,
+              0.3503503939435181,
+              0.3503503939435181,
+              0.3503503939435181,
+              0.3503503939435181,
+              0.2613599748784002,
+              0.29727143247451454,
+              0.30043804588363254,
+              0.31581128182857,
+              0.3101563011225255,
+              0.31735046497141456,
+              0.325473894320988,
+              0.35574689111444824,
+              0.28929860742432767,
+              0.24689608557652967
+            ],
+            "text": [
+              "openclaw-memory-dir/2026-06-09.md",
+              "openclaw-memory-dir/2026-06-10.md",
+              "openclaw-memory-dir/2026-06-11.md",
+              "openclaw-memory-dir/2026-06-12.md",
+              "openclaw-memory-dir/2026-06-13.md",
+              "openclaw-memory-dir/2026-06-14.md",
+              "openclaw-memory-dir/2026-06-15.md",
+              "openclaw-memory-dir/2026-06-16.md",
+              "openclaw-memory-dir/2026-06-17.md",
+              "openclaw-memory-dir/2026-06-18.md",
+              "openclaw-memory-dir/2026-06-19.md",
+              "openclaw-memory-dir/2026-06-20.md",
+              "openclaw-memory-dir/2026-06-21.md",
+              "openclaw-memory-dir/2026-06-22.md",
+              "openclaw-memory-dir/2026-06-23.md",
+              "openclaw-memory-dir/2026-06-24.md",
+              "openclaw-memory-dir/2026-06-25.md",
+              "openclaw-memory-dir/2026-06-26.md",
+              "openclaw-memory-dir/2026-06-27.md",
+              "openclaw-memory-dir/2026-06-28.md",
+              "openclaw-memory-dir/dreaming/deep/2026-06-09.md",
+              "openclaw-memory-dir/dreaming/deep/2026-06-10.md",
+              "openclaw-memory-dir/dreaming/deep/2026-06-11.md",
+              "openclaw-memory-dir/dreaming/deep/2026-06-12.md",
+              "openclaw-memory-dir/dreaming/deep/2026-06-13.md",
+              "openclaw-memory-dir/dreaming/deep/2026-06-14.md",
+              "openclaw-memory-dir/dreaming/deep/2026-06-15.md",
+              "openclaw-memory-dir/dreaming/deep/2026-06-16.md",
+              "openclaw-memory-dir/dreaming/deep/2026-06-17.md",
+              "openclaw-memory-dir/dreaming/deep/2026-06-18.md",
+              "openclaw-memory-dir/dreaming/deep/2026-06-19.md",
+              "openclaw-memory-dir/dreaming/deep/2026-06-20.md",
+              "openclaw-memory-dir/dreaming/deep/2026-06-21.md",
+              "openclaw-memory-dir/dreaming/deep/2026-06-22.md",
+              "openclaw-memory-dir/dreaming/deep/2026-06-23.md",
+              "openclaw-memory-dir/dreaming/deep/2026-06-24.md",
+              "openclaw-memory-dir/dreaming/deep/2026-06-25.md",
+              "openclaw-memory-dir/dreaming/deep/2026-06-26.md",
+              "openclaw-memory-dir/dreaming/deep/2026-06-27.md",
+              "openclaw-memory-dir/dreaming/deep/2026-06-28.md",
+              "openclaw-memory-dir/dreaming/light/2026-06-09.md",
+              "openclaw-memory-dir/dreaming/light/2026-06-10.md",
+              "openclaw-memory-dir/dreaming/light/2026-06-11.md",
+              "openclaw-memory-dir/dreaming/light/2026-06-12.md",
+              "openclaw-memory-dir/dreaming/light/2026-06-13.md",
+              "openclaw-memory-dir/dreaming/light/2026-06-14.md",
+              "openclaw-memory-dir/dreaming/light/2026-06-15.md",
+              "openclaw-memory-dir/dreaming/light/2026-06-16.md",
+              "openclaw-memory-dir/dreaming/light/2026-06-17.md",
+              "openclaw-memory-dir/dreaming/light/2026-06-18.md",
+              "openclaw-memory-dir/dreaming/light/2026-06-19.md",
+              "openclaw-memory-dir/dreaming/light/2026-06-20.md",
+              "openclaw-memory-dir/dreaming/light/2026-06-21.md",
+              "openclaw-memory-dir/dreaming/light/2026-06-22.md",
+              "openclaw-memory-dir/dreaming/light/2026-06-23.md",
+              "openclaw-memory-dir/dreaming/light/2026-06-24.md",
+              "openclaw-memory-dir/dreaming/light/2026-06-25.md",
+              "openclaw-memory-dir/dreaming/light/2026-06-26.md",
+              "openclaw-memory-dir/dreaming/light/2026-06-27.md",
+              "openclaw-memory-dir/dreaming/light/2026-06-28.md",
+              "openclaw-memory-dir/dreaming/rem/2026-06-09.md",
+              "openclaw-memory-dir/dreaming/rem/2026-06-10.md",
+              "openclaw-memory-dir/dreaming/rem/2026-06-11.md",
+              "openclaw-memory-dir/dreaming/rem/2026-06-12.md",
+              "openclaw-memory-dir/dreaming/rem/2026-06-13.md",
+              "openclaw-memory-dir/dreaming/rem/2026-06-14.md",
+              "openclaw-memory-dir/dreaming/rem/2026-06-15.md",
+              "openclaw-memory-dir/dreaming/rem/2026-06-16.md",
+              "openclaw-memory-dir/dreaming/rem/2026-06-17.md",
+              "openclaw-memory-dir/dreaming/rem/2026-06-18.md",
+              "openclaw-memory-dir/dreaming/rem/2026-06-19.md",
+              "openclaw-memory-dir/dreaming/rem/2026-06-20.md",
+              "openclaw-memory-dir/dreaming/rem/2026-06-21.md",
+              "openclaw-memory-dir/dreaming/rem/2026-06-22.md",
+              "openclaw-memory-dir/dreaming/rem/2026-06-23.md",
+              "openclaw-memory-dir/dreaming/rem/2026-06-24.md",
+              "openclaw-memory-dir/dreaming/rem/2026-06-25.md",
+              "openclaw-memory-dir/dreaming/rem/2026-06-26.md",
+              "openclaw-memory-dir/dreaming/rem/2026-06-27.md",
+              "openclaw-memory-dir/dreaming/rem/2026-06-28.md"
+            ],
+            "hoverinfo": "text",
+            "marker": {
+              "size": 5,
+              "opacity": 0.55,
+              "color": "#59a14f",
+              "symbol": "circle"
+            }
+          },
+          {
+            "name": "doc: openclaw-memory-root",
+            "type": "scatter",
+            "mode": "markers",
+            "x": [
+              0.17552191825822502
+            ],
+            "y": [
+              0.22565341778565215
+            ],
+            "text": [
+              "openclaw-memory-root/MEMORY.md"
+            ],
+            "hoverinfo": "text",
+            "marker": {
+              "size": 5,
+              "opacity": 0.55,
+              "color": "#8cd17d",
+              "symbol": "circle"
+            }
+          },
+          {
+            "name": "query: exact",
+            "type": "scatter",
+            "mode": "markers",
+            "x": [
+              0.48930786017156924,
+              0.5086543761159811,
+              0.49283022584235586,
+              0.4111624861941106,
+              0.4707758152677784
+            ],
+            "y": [
+              -0.13817016283895392,
+              -0.17730229314905913,
+              -0.20284235857639507,
+              -0.16993545540184166,
+              -0.151752401492953
+            ],
+            "text": [
+              "exact-yangsuite<br>type=exact hit=true",
+              "exact-firewall<br>type=exact hit=true",
+              "exact-fleet<br>type=exact hit=true",
+              "exact-kanban-ports<br>type=exact hit=true",
+              "exact-shim<br>type=exact hit=true"
+            ],
+            "hoverinfo": "text",
+            "marker": {
+              "size": 11,
+              "opacity": 1,
+              "color": "#e15759",
+              "symbol": [
+                "diamond",
+                "diamond",
+                "diamond",
+                "diamond",
+                "diamond"
+              ]
+            }
+          },
+          {
+            "name": "query: semantic",
+            "type": "scatter",
+            "mode": "markers",
+            "x": [
+              0.3062076354935317,
+              0.4542578586375297,
+              0.4582975586571012,
+              0.373367022343984,
+              0.41645450497708747,
+              0.44611652626029535,
+              0.322109110538342,
+              0.4222640835338925
+            ],
+            "y": [
+              -0.0420078468374465,
+              -0.0957215157930002,
+              -0.09240152221881624,
+              -0.1676705588315331,
+              -0.1738344664753174,
+              -0.19416020987952698,
+              0.0812173297683637,
+              -0.18708354393248078
+            ],
+            "text": [
+              "semantic-pipe<br>type=semantic hit=false",
+              "semantic-commit<br>type=semantic hit=true",
+              "semantic-observability<br>type=semantic hit=true",
+              "semantic-approval<br>type=semantic hit=false",
+              "semantic-chatbot<br>type=semantic hit=true",
+              "semantic-linkedin<br>type=semantic hit=true",
+              "semantic-embeddings<br>type=semantic hit=false",
+              "semantic-dualboot<br>type=semantic hit=true"
+            ],
+            "hoverinfo": "text",
+            "marker": {
+              "size": 11,
+              "opacity": 1,
+              "color": "#f28e2b",
+              "symbol": [
+                "circle-open",
+                "diamond",
+                "diamond",
+                "circle-open",
+                "diamond",
+                "diamond",
+                "circle-open",
+                "diamond"
+              ]
+            }
+          },
+          {
+            "name": "query: topical",
+            "type": "scatter",
+            "mode": "markers",
+            "x": [
+              0.4332803139390112,
+              0.40954778878208686,
+              0.4336229273814464,
+              0.36250838242935535,
+              0.4287353438619058
+            ],
+            "y": [
+              -0.026045672506101722,
+              -0.21978654384632093,
+              -0.030624730320516876,
+              0.00011680255781610605,
+              -0.15367236740936838
+            ],
+            "text": [
+              "topical-compass<br>type=topical hit=true",
+              "topical-kanban<br>type=topical hit=true",
+              "topical-openclaw-agents<br>type=topical hit=false",
+              "topical-arc-gpu<br>type=topical hit=true",
+              "topical-public-repos<br>type=topical hit=true"
+            ],
+            "hoverinfo": "text",
+            "marker": {
+              "size": 11,
+              "opacity": 1,
+              "color": "#b07aa1",
+              "symbol": [
+                "diamond",
+                "diamond",
+                "circle-open",
+                "diamond",
+                "diamond"
+              ]
+            }
+          },
+          {
+            "name": "query: alias",
+            "type": "scatter",
+            "mode": "markers",
+            "x": [
+              0.3847508990475385,
+              0.35054823597005214,
+              0.3194968619819996,
+              0.3388344042812239,
+              0.3166373109710852
+            ],
+            "y": [
+              -0.1610767574805728,
+              -0.17155111622241903,
+              -0.22709934367905008,
+              -0.15599286310477367,
+              -0.02123856029002865
+            ],
+            "text": [
+              "alias-twin<br>type=alias hit=true",
+              "alias-relay<br>type=alias hit=true",
+              "alias-duby<br>type=alias hit=true",
+              "alias-repos<br>type=alias hit=true",
+              "alias-portfolio<br>type=alias hit=true"
+            ],
+            "hoverinfo": "text",
+            "marker": {
+              "size": 11,
+              "opacity": 1,
+              "color": "#76b7b2",
+              "symbol": [
+                "diamond",
+                "diamond",
+                "diamond",
+                "diamond",
+                "diamond"
+              ]
+            }
+          },
+          {
+            "name": "query: cross-domain",
+            "type": "scatter",
+            "mode": "markers",
+            "x": [
+              0.36384493576804033,
+              0.4186590622602347,
+              0.1882766337311222,
+              0.41541267881970095,
+              -0.0035088275589450495
+            ],
+            "y": [
+              0.025978497069590566,
+              0.05173126104616353,
+              -0.057807160217217386,
+              -0.06811906781489306,
+              -0.1050436970693275
+            ],
+            "text": [
+              "cross-whatsapp<br>type=cross-domain hit=true",
+              "cross-setup<br>type=cross-domain hit=false",
+              "cross-obsidian<br>type=cross-domain hit=true",
+              "cross-cron<br>type=cross-domain hit=false",
+              "cross-promotion<br>type=cross-domain hit=false"
+            ],
+            "hoverinfo": "text",
+            "marker": {
+              "size": 11,
+              "opacity": 1,
+              "color": "#ff9da7",
+              "symbol": [
+                "diamond",
+                "circle-open",
+                "diamond",
+                "circle-open",
+                "circle-open"
+              ]
+            }
+          }
+        ],
+        "layout": {
+          "margin": {
+            "l": 0,
+            "r": 0,
+            "t": 10,
+            "b": 0
+          },
+          "legend": {
+            "itemsizing": "constant"
+          },
+          "xaxis": {
+            "title": "PC1",
+            "type": "linear"
+          },
+          "yaxis": {
+            "title": "PC2",
+            "type": "linear"
+          }
+        },
         "config": {
           "displayModeBar": true,
           "responsive": true
-        },
-        "data": []
+        }
       }
     },
     {
@@ -124,38 +665,772 @@
         "x": 12,
         "y": 3
       },
-      "datasource": {
-        "type": "yesoreyeram-infinity-datasource",
-        "uid": "qmd-infinity"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "type": "json",
-          "source": "inline",
-          "format": "table",
-          "data": "[{\"label\":\"claude-memory-dir/MEMORY.md\",\"kind\":\"doc\",\"collection\":\"claude-memory-dir\",\"type\":\"doc\",\"tier_reached\":\"\",\"hit\":null,\"x\":0.4618722304478179,\"y\":0.12061494798624108,\"z\":0.1466325676988106},{\"label\":\"claude-memory-dir/feedback/git-commit-identity-and-signoff.md\",\"kind\":\"doc\",\"collection\":\"claude-memory-dir\",\"type\":\"doc\",\"tier_reached\":\"\",\"hit\":null,\"x\":0.4473132092976214,\"y\":-0.1103124827099791,\"z\":-0.21904625388675034}]",
-          "root_selector": "",
-          "columns": [
-            {"selector": "x", "text": "x", "type": "number"},
-            {"selector": "y", "text": "y", "type": "number"},
-            {"selector": "z", "text": "z", "type": "number"},
-            {"selector": "label", "text": "label", "type": "string"},
-            {"selector": "kind", "text": "kind", "type": "string"},
-            {"selector": "collection", "text": "collection", "type": "string"},
-            {"selector": "type", "text": "type", "type": "string"},
-            {"selector": "tier_reached", "text": "tier_reached", "type": "string"},
-            {"selector": "hit", "text": "hit", "type": "string"}
-          ],
-          "datasource": {"type": "yesoreyeram-infinity-datasource", "uid": "qmd-infinity"}
-        }
-      ],
+      "datasource": null,
+      "targets": [],
       "options": {
-        "script": "const f = data.series[0];\nconst get = (n) => { const fld = f.fields.find(x => x.name === n); return fld ? fld.values.toArray ? fld.values.toArray() : fld.values : []; };\nconst X=get('x'), Y=get('y'), Z=get('z'), L=get('label'), K=get('kind'), C=get('collection'), T=get('type'), H=get('hit');\nconst COLL={'claude-memory-dir':'#4e79a7','claude-memory-root':'#a0cbe8','openclaw-memory-dir':'#59a14f','openclaw-memory-root':'#8cd17d'};\nconst TYPE={exact:'#e15759',semantic:'#f28e2b',topical:'#b07aa1',alias:'#76b7b2','cross-domain':'#ff9da7'};\nconst traces=[]; const is3d=true;\nconst groups={};\nfor(let i=0;i<X.length;i++){ const isq=K[i]==='query'; const key=isq?('query: '+T[i]):('doc: '+C[i]); (groups[key]??=[]).push(i); }\nfor(const [name,idx] of Object.entries(groups)){\n  const isq=name.startsWith('query');\n  const tr={name, mode:'markers', type=is3d?'scatter3d':'scattergl',\n    x:idx.map(i=>X[i]), y:idx.map(i=>Y[i]),\n    text:idx.map(i=>L[i]+(isq?('<br>type='+T[i]+' hit='+H[i]):'')), hoverinfo:'text',\n    marker:{ size=isq?11:5, opacity=isq?1:0.55,\n      color: isq?(TYPE[T[idx[0]]]||'#000'):(COLL[C[idx[0]]]||'#bab0ac'),\n      symbol: isq?idx.map(i=>String(H[i])==='false'?'circle-open':'diamond'):'circle',\n      line: isq?{width:1.5,color:'#222'}:undefined } };\n  if(is3d) tr.z=idx.map(i=>Z[i]);\n  traces.push(tr);\n}\nreturn { data:traces, layout:{ margin:{l:0,r:0,t:10,b:0}, legend:{itemsizing:'constant'},\n  scene:{xaxis:{title:'PC1'},yaxis:{title:'PC2'},zaxis:{title:'PC3'}}, xaxis:{title:'PC1'}, yaxis:{title:'PC2'} } };",
+        "script": "",
         "onclick": "",
-        "layout": {},
-        "config": {"displayModeBar": true, "responsive": true},
-        "data": []
+        "data": [
+          {
+            "name": "doc: claude-memory-dir",
+            "type": "scatter3d",
+            "mode": "markers",
+            "x": [
+              0.4618722304478179,
+              0.4473132092976214,
+              0.3639629969424931,
+              0.4624156472944578,
+              0.3903616203781064,
+              0.11322166139412258,
+              0.38995265013840735,
+              0.2548547145146583,
+              0.4879968670629399,
+              0.527783335495958,
+              0.44497480296373393,
+              0.4125273578206518,
+              0.4315745735940099,
+              0.3222363853068661,
+              0.31346493182593765,
+              0.41003357738037177,
+              0.3503116324462868,
+              0.4255715011386264,
+              0.35988720038339944,
+              0.4414439366197125
+            ],
+            "y": [
+              0.12061494798624108,
+              -0.1103124827099791,
+              -0.012682182086646218,
+              -0.07754386689162546,
+              -0.11765166391140491,
+              0.15883021689122043,
+              0.11254242392889267,
+              0.1590986705746641,
+              -0.10849714582756229,
+              -0.1595615649201719,
+              -0.16383920214905748,
+              -0.0929121765422328,
+              -0.13518423314111247,
+              -0.018456757462380766,
+              0.09543688478779631,
+              -0.054098543679037506,
+              0.15221607281969307,
+              -0.05852310910700488,
+              -0.05630352728728797,
+              -0.045245658484905915
+            ],
+            "text": [
+              "claude-memory-dir/MEMORY.md",
+              "claude-memory-dir/feedback/git-commit-identity-and-signoff.md",
+              "claude-memory-dir/feedback/prefix-replies-with-pipe.md",
+              "claude-memory-dir/infra/agent-observability-stack.md",
+              "claude-memory-dir/infra/claude-kanban-workflow.md",
+              "claude-memory-dir/infra/claude-qmd-memory.md",
+              "claude-memory-dir/infra/compass-stage-gateway-and-cc-shim.md",
+              "claude-memory-dir/infra/core42-compass-capabilities.md",
+              "claude-memory-dir/infra/cws-yangsuite-vm.md",
+              "claude-memory-dir/infra/docker-egress-firewall.md",
+              "claude-memory-dir/infra/dualboot-box-ssh.md",
+              "claude-memory-dir/infra/fleet-control-plane.md",
+              "claude-memory-dir/infra/kanban-netops-integration.md",
+              "claude-memory-dir/infra/linky-linkedin-agent.md",
+              "claude-memory-dir/infra/local-arc-inference-qwen3.md",
+              "claude-memory-dir/infra/openclaw-exec-approval-shell-substitution.md",
+              "claude-memory-dir/infra/openclaw-on-host-setup.md",
+              "claude-memory-dir/infra/portfolio-sync-automation.md",
+              "claude-memory-dir/projects/digital-twin-career-agent.md",
+              "claude-memory-dir/projects/public-agent-demo-repos.md"
+            ],
+            "hoverinfo": "text",
+            "marker": {
+              "size": 5,
+              "opacity": 0.55,
+              "color": "#4e79a7",
+              "symbol": "circle"
+            },
+            "z": [
+              0.1466325676988106,
+              -0.21904625388675034,
+              -0.1609663086030651,
+              0.011104979108491012,
+              -0.10135392379375022,
+              0.1532613786824318,
+              0.09411215721242562,
+              0.21423732257065745,
+              -0.0606147031757238,
+              -0.11924459928768112,
+              -0.17307194402816145,
+              -0.012478822343876561,
+              -0.07397084513066209,
+              -0.15266392597474118,
+              0.07072219537163175,
+              -0.08062535484171164,
+              0.14660233035201425,
+              -0.09001515740127161,
+              -0.04004133596249928,
+              -0.04378122664207066
+            ]
+          },
+          {
+            "name": "doc: claude-memory-root",
+            "type": "scatter3d",
+            "mode": "markers",
+            "x": [
+              0.4618722304478179
+            ],
+            "y": [
+              0.12061494798624108
+            ],
+            "text": [
+              "claude-memory-root/MEMORY.md"
+            ],
+            "hoverinfo": "text",
+            "marker": {
+              "size": 5,
+              "opacity": 0.55,
+              "color": "#a0cbe8",
+              "symbol": "circle"
+            },
+            "z": [
+              0.1466325676988106
+            ]
+          },
+          {
+            "name": "doc: openclaw-memory-dir",
+            "type": "scatter3d",
+            "mode": "markers",
+            "x": [
+              0.1388564361169336,
+              0.04624793015442986,
+              -0.12704665388500808,
+              -0.17008817395605447,
+              -0.27804580019606395,
+              -0.18013844107290633,
+              -0.24895922465428483,
+              -0.04576593649819943,
+              -0.27550366750357336,
+              -0.32727153644644424,
+              -0.3184489955560138,
+              -0.32880218674842315,
+              -0.32244726590286055,
+              -0.3170565998028591,
+              -0.351904265477477,
+              -0.28108653073609957,
+              -0.2674607656107679,
+              -0.15001484777489787,
+              -0.2484163957982212,
+              -0.2981039006328432,
+              -0.29985074687026503,
+              -0.3710333473191182,
+              -0.3710333473191182,
+              -0.37812933217560624,
+              -0.37677108722189445,
+              -0.37345821590017614,
+              -0.37639773104350305,
+              -0.368848816686922,
+              -0.3697386753448932,
+              -0.3716019640586953,
+              -0.3716019640586953,
+              -0.3716019640586953,
+              -0.3716019640586953,
+              -0.3716019640586953,
+              -0.3716019640586953,
+              -0.3716019640586953,
+              -0.3716019640586953,
+              -0.3716019640586953,
+              -0.3716019640586953,
+              -0.3716019640586953,
+              0.16221666671554738,
+              0.08595973655389501,
+              -0.13356057862435333,
+              -0.16491856824157602,
+              -0.31043818192703554,
+              -0.18127578072624745,
+              -0.24414084291370608,
+              0.001292984396463439,
+              -0.27157032239841816,
+              -0.341812149940789,
+              -0.32244711277101007,
+              -0.3319397038057295,
+              -0.30610222289036804,
+              -0.301549503588719,
+              -0.3268652147207176,
+              -0.26810310850262303,
+              -0.2705210439381371,
+              -0.1977256280770259,
+              -0.23082964104317943,
+              -0.25291648734777494,
+              -0.11086822374812254,
+              -0.17802530518012044,
+              -0.17829048395281955,
+              -0.1828131896400817,
+              -0.1154429999660755,
+              -0.13348640886402538,
+              -0.12562866366762435,
+              -0.12562866366762435,
+              -0.12562866366762435,
+              -0.12562866366762435,
+              -0.20809035624723726,
+              -0.16393486192722415,
+              -0.1557063087433385,
+              -0.17045796312231953,
+              -0.17543255410802897,
+              -0.16101684025829105,
+              -0.17820814181661093,
+              -0.15363508362544348,
+              -0.24101284026558048,
+              -0.2410843504155431
+            ],
+            "y": [
+              0.2664564144876654,
+              0.20252889617554773,
+              0.24956311054194874,
+              0.11939364516080733,
+              0.1988690467661671,
+              0.2830215080362304,
+              0.26006168644171407,
+              0.2202065061339684,
+              0.2457247226366536,
+              0.23319506734041598,
+              0.2242049517140992,
+              0.2565551346657065,
+              0.1755987107659615,
+              0.1468576894939262,
+              0.18119487503760703,
+              0.14245765861177678,
+              0.23809733236716665,
+              0.12771780605099853,
+              0.139408694544537,
+              0.16814966462007694,
+              -0.3535404458554805,
+              -0.5455240739867906,
+              -0.5455240739867906,
+              -0.5675151343958776,
+              -0.5638838122878187,
+              -0.5653709688991195,
+              -0.5513498307266659,
+              -0.5675137977422187,
+              -0.5675610979261462,
+              -0.5677528025265661,
+              -0.5677528025265661,
+              -0.5677528025265661,
+              -0.5677528025265661,
+              -0.5677528025265661,
+              -0.5677528025265661,
+              -0.5677528025265661,
+              -0.5677528025265661,
+              -0.5677528025265661,
+              -0.5677528025265661,
+              -0.5677528025265661,
+              0.15917089860105713,
+              0.16808168141871568,
+              0.24171866026426822,
+              0.1066327042313946,
+              0.2052785645847272,
+              0.26830255298809824,
+              0.27223763013052016,
+              0.21626533516598345,
+              0.2614199106040702,
+              0.20462766561570625,
+              0.2025922923329117,
+              0.232207647354789,
+              0.16603246734161584,
+              0.15273996255732114,
+              0.21167088808511714,
+              0.11467420945187283,
+              0.23020297912122045,
+              0.15201361114204903,
+              0.12201233146351255,
+              0.11261673492717247,
+              0.3036595485884854,
+              0.2873243793842016,
+              0.28757714266325424,
+              0.3035726017433375,
+              0.3413323874862913,
+              0.3463324557750306,
+              0.3503503939435181,
+              0.3503503939435181,
+              0.3503503939435181,
+              0.3503503939435181,
+              0.2613599748784002,
+              0.29727143247451454,
+              0.30043804588363254,
+              0.31581128182857,
+              0.3101563011225255,
+              0.31735046497141456,
+              0.325473894320988,
+              0.35574689111444824,
+              0.28929860742432767,
+              0.24689608557652967
+            ],
+            "text": [
+              "openclaw-memory-dir/2026-06-09.md",
+              "openclaw-memory-dir/2026-06-10.md",
+              "openclaw-memory-dir/2026-06-11.md",
+              "openclaw-memory-dir/2026-06-12.md",
+              "openclaw-memory-dir/2026-06-13.md",
+              "openclaw-memory-dir/2026-06-14.md",
+              "openclaw-memory-dir/2026-06-15.md",
+              "openclaw-memory-dir/2026-06-16.md",
+              "openclaw-memory-dir/2026-06-17.md",
+              "openclaw-memory-dir/2026-06-18.md",
+              "openclaw-memory-dir/2026-06-19.md",
+              "openclaw-memory-dir/2026-06-20.md",
+              "openclaw-memory-dir/2026-06-21.md",
+              "openclaw-memory-dir/2026-06-22.md",
+              "openclaw-memory-dir/2026-06-23.md",
+              "openclaw-memory-dir/2026-06-24.md",
+              "openclaw-memory-dir/2026-06-25.md",
+              "openclaw-memory-dir/2026-06-26.md",
+              "openclaw-memory-dir/2026-06-27.md",
+              "openclaw-memory-dir/2026-06-28.md",
+              "openclaw-memory-dir/dreaming/deep/2026-06-09.md",
+              "openclaw-memory-dir/dreaming/deep/2026-06-10.md",
+              "openclaw-memory-dir/dreaming/deep/2026-06-11.md",
+              "openclaw-memory-dir/dreaming/deep/2026-06-12.md",
+              "openclaw-memory-dir/dreaming/deep/2026-06-13.md",
+              "openclaw-memory-dir/dreaming/deep/2026-06-14.md",
+              "openclaw-memory-dir/dreaming/deep/2026-06-15.md",
+              "openclaw-memory-dir/dreaming/deep/2026-06-16.md",
+              "openclaw-memory-dir/dreaming/deep/2026-06-17.md",
+              "openclaw-memory-dir/dreaming/deep/2026-06-18.md",
+              "openclaw-memory-dir/dreaming/deep/2026-06-19.md",
+              "openclaw-memory-dir/dreaming/deep/2026-06-20.md",
+              "openclaw-memory-dir/dreaming/deep/2026-06-21.md",
+              "openclaw-memory-dir/dreaming/deep/2026-06-22.md",
+              "openclaw-memory-dir/dreaming/deep/2026-06-23.md",
+              "openclaw-memory-dir/dreaming/deep/2026-06-24.md",
+              "openclaw-memory-dir/dreaming/deep/2026-06-25.md",
+              "openclaw-memory-dir/dreaming/deep/2026-06-26.md",
+              "openclaw-memory-dir/dreaming/deep/2026-06-27.md",
+              "openclaw-memory-dir/dreaming/deep/2026-06-28.md",
+              "openclaw-memory-dir/dreaming/light/2026-06-09.md",
+              "openclaw-memory-dir/dreaming/light/2026-06-10.md",
+              "openclaw-memory-dir/dreaming/light/2026-06-11.md",
+              "openclaw-memory-dir/dreaming/light/2026-06-12.md",
+              "openclaw-memory-dir/dreaming/light/2026-06-13.md",
+              "openclaw-memory-dir/dreaming/light/2026-06-14.md",
+              "openclaw-memory-dir/dreaming/light/2026-06-15.md",
+              "openclaw-memory-dir/dreaming/light/2026-06-16.md",
+              "openclaw-memory-dir/dreaming/light/2026-06-17.md",
+              "openclaw-memory-dir/dreaming/light/2026-06-18.md",
+              "openclaw-memory-dir/dreaming/light/2026-06-19.md",
+              "openclaw-memory-dir/dreaming/light/2026-06-20.md",
+              "openclaw-memory-dir/dreaming/light/2026-06-21.md",
+              "openclaw-memory-dir/dreaming/light/2026-06-22.md",
+              "openclaw-memory-dir/dreaming/light/2026-06-23.md",
+              "openclaw-memory-dir/dreaming/light/2026-06-24.md",
+              "openclaw-memory-dir/dreaming/light/2026-06-25.md",
+              "openclaw-memory-dir/dreaming/light/2026-06-26.md",
+              "openclaw-memory-dir/dreaming/light/2026-06-27.md",
+              "openclaw-memory-dir/dreaming/light/2026-06-28.md",
+              "openclaw-memory-dir/dreaming/rem/2026-06-09.md",
+              "openclaw-memory-dir/dreaming/rem/2026-06-10.md",
+              "openclaw-memory-dir/dreaming/rem/2026-06-11.md",
+              "openclaw-memory-dir/dreaming/rem/2026-06-12.md",
+              "openclaw-memory-dir/dreaming/rem/2026-06-13.md",
+              "openclaw-memory-dir/dreaming/rem/2026-06-14.md",
+              "openclaw-memory-dir/dreaming/rem/2026-06-15.md",
+              "openclaw-memory-dir/dreaming/rem/2026-06-16.md",
+              "openclaw-memory-dir/dreaming/rem/2026-06-17.md",
+              "openclaw-memory-dir/dreaming/rem/2026-06-18.md",
+              "openclaw-memory-dir/dreaming/rem/2026-06-19.md",
+              "openclaw-memory-dir/dreaming/rem/2026-06-20.md",
+              "openclaw-memory-dir/dreaming/rem/2026-06-21.md",
+              "openclaw-memory-dir/dreaming/rem/2026-06-22.md",
+              "openclaw-memory-dir/dreaming/rem/2026-06-23.md",
+              "openclaw-memory-dir/dreaming/rem/2026-06-24.md",
+              "openclaw-memory-dir/dreaming/rem/2026-06-25.md",
+              "openclaw-memory-dir/dreaming/rem/2026-06-26.md",
+              "openclaw-memory-dir/dreaming/rem/2026-06-27.md",
+              "openclaw-memory-dir/dreaming/rem/2026-06-28.md"
+            ],
+            "hoverinfo": "text",
+            "marker": {
+              "size": 5,
+              "opacity": 0.55,
+              "color": "#59a14f",
+              "symbol": "circle"
+            },
+            "z": [
+              0.3986336359315929,
+              0.14935671040298543,
+              0.19310049442418764,
+              -0.32317963289549756,
+              -0.07297312932438244,
+              0.0712701002572759,
+              -0.09253049087717137,
+              0.10925445662976806,
+              -0.0664708394102757,
+              -0.15162656728924354,
+              -0.19839529687644453,
+              -0.12808277695316972,
+              -0.2783394990680059,
+              -0.294975587328188,
+              -0.31526862987398185,
+              -0.35189591925551195,
+              -0.10896402081472474,
+              -0.3821740188582385,
+              -0.35641380164056324,
+              -0.3538358598251597,
+              0.030306051078772878,
+              0.10564192428357518,
+              0.10564192428357518,
+              0.10679108850068013,
+              0.1073841961482047,
+              0.11051435198763512,
+              0.11518042907081018,
+              0.10763677301654005,
+              0.10551913598059702,
+              0.10877526863854159,
+              0.10877526863854159,
+              0.10877526863854159,
+              0.10877526863854159,
+              0.10877526863854159,
+              0.10877526863854159,
+              0.10877526863854159,
+              0.10877526863854159,
+              0.10877526863854159,
+              0.10877526863854159,
+              0.10877526863854159,
+              0.16892959647630598,
+              0.12323037300713857,
+              0.1820801959281437,
+              -0.33497916207868106,
+              -0.12863279318676016,
+              0.07293766827827486,
+              -0.09493822050728991,
+              0.1308573283783861,
+              -0.05619871627770852,
+              -0.21785347258107263,
+              -0.2425142402735886,
+              -0.1774293136198918,
+              -0.2795355089226893,
+              -0.2771384175300926,
+              -0.26634016916340136,
+              -0.328872174442738,
+              -0.1356509213959695,
+              -0.39234256024568254,
+              -0.3412694821886783,
+              -0.38569435421415726,
+              0.28530853962747194,
+              0.23573945640545219,
+              0.23191231162660084,
+              0.2553867028778449,
+              0.324040113170832,
+              0.32479988689681033,
+              0.3328900585762303,
+              0.3328900585762303,
+              0.3328900585762303,
+              0.3328900585762303,
+              -0.014237027718475391,
+              0.08968613661471546,
+              0.11611616530786129,
+              0.21598375576064557,
+              0.2093566252959812,
+              0.1851416393972191,
+              0.2404878334217452,
+              0.26214848308089667,
+              0.07256384019160181,
+              -0.026390659170651115
+            ]
+          },
+          {
+            "name": "doc: openclaw-memory-root",
+            "type": "scatter3d",
+            "mode": "markers",
+            "x": [
+              0.17552191825822502
+            ],
+            "y": [
+              0.22565341778565215
+            ],
+            "text": [
+              "openclaw-memory-root/MEMORY.md"
+            ],
+            "hoverinfo": "text",
+            "marker": {
+              "size": 5,
+              "opacity": 0.55,
+              "color": "#8cd17d",
+              "symbol": "circle"
+            },
+            "z": [
+              0.3155818960491971
+            ]
+          },
+          {
+            "name": "query: exact",
+            "type": "scatter3d",
+            "mode": "markers",
+            "x": [
+              0.48930786017156924,
+              0.5086543761159811,
+              0.49283022584235586,
+              0.4111624861941106,
+              0.4707758152677784
+            ],
+            "y": [
+              -0.13817016283895392,
+              -0.17730229314905913,
+              -0.20284235857639507,
+              -0.16993545540184166,
+              -0.151752401492953
+            ],
+            "text": [
+              "exact-yangsuite<br>type=exact hit=true",
+              "exact-firewall<br>type=exact hit=true",
+              "exact-fleet<br>type=exact hit=true",
+              "exact-kanban-ports<br>type=exact hit=true",
+              "exact-shim<br>type=exact hit=true"
+            ],
+            "hoverinfo": "text",
+            "marker": {
+              "size": 11,
+              "opacity": 1,
+              "color": "#e15759",
+              "symbol": [
+                "diamond",
+                "diamond",
+                "diamond",
+                "diamond",
+                "diamond"
+              ]
+            },
+            "z": [
+              -0.07031525832768237,
+              -0.14610320254041625,
+              -0.11111166455318881,
+              0.04280610811795942,
+              -0.10127516043233228
+            ]
+          },
+          {
+            "name": "query: semantic",
+            "type": "scatter3d",
+            "mode": "markers",
+            "x": [
+              0.3062076354935317,
+              0.4542578586375297,
+              0.4582975586571012,
+              0.373367022343984,
+              0.41645450497708747,
+              0.44611652626029535,
+              0.322109110538342,
+              0.4222640835338925
+            ],
+            "y": [
+              -0.0420078468374465,
+              -0.0957215157930002,
+              -0.09240152221881624,
+              -0.1676705588315331,
+              -0.1738344664753174,
+              -0.19416020987952698,
+              0.0812173297683637,
+              -0.18708354393248078
+            ],
+            "text": [
+              "semantic-pipe<br>type=semantic hit=false",
+              "semantic-commit<br>type=semantic hit=true",
+              "semantic-observability<br>type=semantic hit=true",
+              "semantic-approval<br>type=semantic hit=false",
+              "semantic-chatbot<br>type=semantic hit=true",
+              "semantic-linkedin<br>type=semantic hit=true",
+              "semantic-embeddings<br>type=semantic hit=false",
+              "semantic-dualboot<br>type=semantic hit=true"
+            ],
+            "hoverinfo": "text",
+            "marker": {
+              "size": 11,
+              "opacity": 1,
+              "color": "#f28e2b",
+              "symbol": [
+                "circle-open",
+                "diamond",
+                "diamond",
+                "circle-open",
+                "diamond",
+                "diamond",
+                "circle-open",
+                "diamond"
+              ]
+            },
+            "z": [
+              -0.22525702264470535,
+              -0.17757773466781127,
+              -0.040115885341421326,
+              -0.05923233617065877,
+              -0.06446723602354025,
+              -0.000019286043532923944,
+              0.20429535011127106,
+              -0.147226754891499
+            ]
+          },
+          {
+            "name": "query: topical",
+            "type": "scatter3d",
+            "mode": "markers",
+            "x": [
+              0.4332803139390112,
+              0.40954778878208686,
+              0.4336229273814464,
+              0.36250838242935535,
+              0.4287353438619058
+            ],
+            "y": [
+              -0.026045672506101722,
+              -0.21978654384632093,
+              -0.030624730320516876,
+              0.00011680255781610605,
+              -0.15367236740936838
+            ],
+            "text": [
+              "topical-compass<br>type=topical hit=true",
+              "topical-kanban<br>type=topical hit=true",
+              "topical-openclaw-agents<br>type=topical hit=false",
+              "topical-arc-gpu<br>type=topical hit=true",
+              "topical-public-repos<br>type=topical hit=true"
+            ],
+            "hoverinfo": "text",
+            "marker": {
+              "size": 11,
+              "opacity": 1,
+              "color": "#b07aa1",
+              "symbol": [
+                "diamond",
+                "diamond",
+                "circle-open",
+                "diamond",
+                "diamond"
+              ]
+            },
+            "z": [
+              0.0417417259540359,
+              -0.07908314385045612,
+              0.10194265608899736,
+              0.1672515750178962,
+              0.05106880792180526
+            ]
+          },
+          {
+            "name": "query: alias",
+            "type": "scatter3d",
+            "mode": "markers",
+            "x": [
+              0.3847508990475385,
+              0.35054823597005214,
+              0.3194968619819996,
+              0.3388344042812239,
+              0.3166373109710852
+            ],
+            "y": [
+              -0.1610767574805728,
+              -0.17155111622241903,
+              -0.22709934367905008,
+              -0.15599286310477367,
+              -0.02123856029002865
+            ],
+            "text": [
+              "alias-twin<br>type=alias hit=true",
+              "alias-relay<br>type=alias hit=true",
+              "alias-duby<br>type=alias hit=true",
+              "alias-repos<br>type=alias hit=true",
+              "alias-portfolio<br>type=alias hit=true"
+            ],
+            "hoverinfo": "text",
+            "marker": {
+              "size": 11,
+              "opacity": 1,
+              "color": "#76b7b2",
+              "symbol": [
+                "diamond",
+                "diamond",
+                "diamond",
+                "diamond",
+                "diamond"
+              ]
+            },
+            "z": [
+              -0.028534062551401368,
+              -0.09744245247164846,
+              -0.20810826880104993,
+              -0.03908428944828177,
+              -0.07681972321128243
+            ]
+          },
+          {
+            "name": "query: cross-domain",
+            "type": "scatter3d",
+            "mode": "markers",
+            "x": [
+              0.36384493576804033,
+              0.4186590622602347,
+              0.1882766337311222,
+              0.41541267881970095,
+              -0.0035088275589450495
+            ],
+            "y": [
+              0.025978497069590566,
+              0.05173126104616353,
+              -0.057807160217217386,
+              -0.06811906781489306,
+              -0.1050436970693275
+            ],
+            "text": [
+              "cross-whatsapp<br>type=cross-domain hit=true",
+              "cross-setup<br>type=cross-domain hit=false",
+              "cross-obsidian<br>type=cross-domain hit=true",
+              "cross-cron<br>type=cross-domain hit=false",
+              "cross-promotion<br>type=cross-domain hit=false"
+            ],
+            "hoverinfo": "text",
+            "marker": {
+              "size": 11,
+              "opacity": 1,
+              "color": "#ff9da7",
+              "symbol": [
+                "diamond",
+                "circle-open",
+                "diamond",
+                "circle-open",
+                "circle-open"
+              ]
+            },
+            "z": [
+              -0.05964189213396255,
+              0.15725409709548863,
+              -0.012752732013154732,
+              0.11655314899947725,
+              -0.005641206122331685
+            ]
+          }
+        ],
+        "layout": {
+          "margin": {
+            "l": 0,
+            "r": 0,
+            "t": 10,
+            "b": 0
+          },
+          "legend": {
+            "itemsizing": "constant"
+          },
+          "scene": {
+            "xaxis": {
+              "title": "PC1"
+            },
+            "yaxis": {
+              "title": "PC2"
+            },
+            "zaxis": {
+              "title": "PC3"
+            }
+          }
+        },
+        "config": {
+          "displayModeBar": true,
+          "responsive": true
+        }
       }
     }
   ]
