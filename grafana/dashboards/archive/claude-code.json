@@ -1,12 +1,12 @@
 {
-  "uid": "agents",
-  "title": "OpenClaw Agents \u2014 Cost, Latency & Traces",
+  "uid": "claude-code",
+  "title": "Claude Code (Archived)",
   "tags": [
-    "agents",
-    "llm"
+    "ai",
+    "claude-code"
   ],
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "editable": true,
   "refresh": "30s",
   "time": {
@@ -18,10 +18,10 @@
     {
       "id": 1,
       "type": "stat",
-      "title": "Spend (range)",
+      "title": "Cost (range)",
       "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
+        "type": "loki",
+        "uid": "loki"
       },
       "gridPos": {
         "h": 4,
@@ -60,21 +60,21 @@
         {
           "refId": "A",
           "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
+            "type": "loki",
+            "uid": "loki"
           },
-          "expr": "sum(increase(litellm_spend_metric_total[$__range])) or vector(0)",
-          "legendFormat": ""
+          "expr": "sum(sum_over_time({service_name=\"claude-code\"} | event_name=`api_request` | cost_usd != `0` | unwrap cost_usd [$__range]))",
+          "queryType": "instant"
         }
       ]
     },
     {
       "id": 2,
       "type": "stat",
-      "title": "Tokens (range)",
+      "title": "Output tokens",
       "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
+        "type": "loki",
+        "uid": "loki"
       },
       "gridPos": {
         "h": 4,
@@ -113,21 +113,21 @@
         {
           "refId": "A",
           "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
+            "type": "loki",
+            "uid": "loki"
           },
-          "expr": "sum(increase(litellm_total_tokens_metric_total[$__range])) or vector(0)",
-          "legendFormat": ""
+          "expr": "sum(sum_over_time({service_name=\"claude-code\"} | event_name=`api_request` | unwrap output_tokens [$__range]))",
+          "queryType": "instant"
         }
       ]
     },
     {
       "id": 3,
       "type": "stat",
-      "title": "Model calls (1h)",
+      "title": "Cache-read tokens",
       "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
+        "type": "loki",
+        "uid": "loki"
       },
       "gridPos": {
         "h": 4,
@@ -166,21 +166,21 @@
         {
           "refId": "A",
           "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
+            "type": "loki",
+            "uid": "loki"
           },
-          "expr": "sum(increase(openclaw_model_call_total[1h])) or vector(0)",
-          "legendFormat": ""
+          "expr": "sum(sum_over_time({service_name=\"claude-code\"} | event_name=`api_request` | unwrap cache_read_tokens [$__range]))",
+          "queryType": "instant"
         }
       ]
     },
     {
       "id": 4,
       "type": "stat",
-      "title": "Errors (1h)",
+      "title": "Requests",
       "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
+        "type": "loki",
+        "uid": "loki"
       },
       "gridPos": {
         "h": 4,
@@ -200,14 +200,6 @@
               {
                 "color": "green",
                 "value": null
-              },
-              {
-                "color": "orange",
-                "value": 1
-              },
-              {
-                "color": "red",
-                "value": 5
               }
             ]
           }
@@ -227,21 +219,21 @@
         {
           "refId": "A",
           "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
+            "type": "loki",
+            "uid": "loki"
           },
-          "expr": "sum(increase(openclaw_model_call_total{outcome!=\"completed\"}[1h])) or vector(0)",
-          "legendFormat": ""
+          "expr": "sum(count_over_time({service_name=\"claude-code\"} | event_name=`api_request` [$__range]))",
+          "queryType": "instant"
         }
       ]
     },
     {
       "id": 5,
       "type": "timeseries",
-      "title": "Cost by model (1h rate)",
+      "title": "Cost by MODEL",
       "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
+        "type": "loki",
+        "uid": "loki"
       },
       "gridPos": {
         "h": 8,
@@ -279,21 +271,22 @@
         {
           "refId": "A",
           "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
+            "type": "loki",
+            "uid": "loki"
           },
-          "expr": "sum by (model)(rate(litellm_spend_metric_total{model=~\"$model\"}[1h]))*3600",
-          "legendFormat": "{{model}} $/h"
+          "expr": "sum by (model)(sum_over_time({service_name=\"claude-code\"} | event_name=`api_request` | unwrap cost_usd [$__interval]))",
+          "legendFormat": "{{model}}",
+          "queryType": "range"
         }
       ]
     },
     {
       "id": 6,
       "type": "timeseries",
-      "title": "Tokens by type",
+      "title": "Tokens by TYPE (in / out / cacheRead / cacheCreation)",
       "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
+        "type": "loki",
+        "uid": "loki"
       },
       "gridPos": {
         "h": 8,
@@ -306,9 +299,9 @@
           "unit": "short",
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 18,
+            "fillOpacity": 40,
             "stacking": {
-              "mode": "none"
+              "mode": "normal"
             }
           }
         },
@@ -331,48 +324,52 @@
         {
           "refId": "A",
           "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
+            "type": "loki",
+            "uid": "loki"
           },
-          "expr": "sum(rate(litellm_input_tokens_metric_total{model=~\"$model\"}[5m]))",
-          "legendFormat": "input"
+          "expr": "sum(sum_over_time({service_name=\"claude-code\"} | event_name=`api_request` | unwrap input_tokens [$__interval]))",
+          "legendFormat": "input",
+          "queryType": "range"
         },
         {
           "refId": "B",
           "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
+            "type": "loki",
+            "uid": "loki"
           },
-          "expr": "sum(rate(litellm_output_tokens_metric_total{model=~\"$model\"}[5m]))",
-          "legendFormat": "output"
+          "expr": "sum(sum_over_time({service_name=\"claude-code\"} | event_name=`api_request` | unwrap output_tokens [$__interval]))",
+          "legendFormat": "output",
+          "queryType": "range"
         },
         {
           "refId": "C",
           "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
+            "type": "loki",
+            "uid": "loki"
           },
-          "expr": "sum(rate(litellm_input_cached_tokens_metric_total[5m]))",
-          "legendFormat": "cached"
+          "expr": "sum(sum_over_time({service_name=\"claude-code\"} | event_name=`api_request` | unwrap cache_read_tokens [$__interval]))",
+          "legendFormat": "cacheRead",
+          "queryType": "range"
         },
         {
           "refId": "D",
           "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
+            "type": "loki",
+            "uid": "loki"
           },
-          "expr": "sum(rate(litellm_output_reasoning_tokens_metric_total[5m]))",
-          "legendFormat": "reasoning"
+          "expr": "sum(sum_over_time({service_name=\"claude-code\"} | event_name=`api_request` | unwrap cache_creation_tokens [$__interval]))",
+          "legendFormat": "cacheCreation",
+          "queryType": "range"
         }
       ]
     },
     {
       "id": 7,
       "type": "timeseries",
-      "title": "Model-call p95 / p50 latency",
+      "title": "Output tokens by MODEL",
       "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
+        "type": "loki",
+        "uid": "loki"
       },
       "gridPos": {
         "h": 8,
@@ -382,12 +379,12 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "s",
+          "unit": "short",
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 18,
+            "fillOpacity": 40,
             "stacking": {
-              "mode": "none"
+              "mode": "normal"
             }
           }
         },
@@ -410,34 +407,26 @@
         {
           "refId": "A",
           "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
+            "type": "loki",
+            "uid": "loki"
           },
-          "expr": "histogram_quantile(0.95, sum by (le,model)(rate(openclaw_model_call_duration_seconds_bucket[5m])))",
-          "legendFormat": "p95 {{model}}"
-        },
-        {
-          "refId": "B",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "histogram_quantile(0.50, sum by (le,model)(rate(openclaw_model_call_duration_seconds_bucket[5m])))",
-          "legendFormat": "p50 {{model}}"
+          "expr": "sum by (model)(sum_over_time({service_name=\"claude-code\"} | event_name=`api_request` | unwrap output_tokens [$__interval]))",
+          "legendFormat": "{{model}}",
+          "queryType": "range"
         }
       ]
     },
     {
       "id": 8,
       "type": "timeseries",
-      "title": "Call outcomes",
+      "title": "Requests by MODEL",
       "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
+        "type": "loki",
+        "uid": "loki"
       },
       "gridPos": {
         "h": 8,
-        "w": 6,
+        "w": 12,
         "x": 12,
         "y": 12
       },
@@ -471,83 +460,77 @@
         {
           "refId": "A",
           "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
+            "type": "loki",
+            "uid": "loki"
           },
-          "expr": "sum by (outcome)(rate(openclaw_model_call_total[5m]))",
-          "legendFormat": "{{outcome}}"
+          "expr": "sum by (model)(count_over_time({service_name=\"claude-code\"} | event_name=`api_request` [$__interval]))",
+          "legendFormat": "{{model}}",
+          "queryType": "range"
         }
       ]
     },
     {
       "id": 9,
-      "type": "timeseries",
-      "title": "Prompt cache hit ratio (cached input tokens)",
+      "type": "bargauge",
+      "title": "Cache-read tokens by MODEL (range)",
       "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
+        "type": "loki",
+        "uid": "loki"
       },
       "gridPos": {
         "h": 8,
-        "w": 6,
-        "x": 18,
-        "y": 12
+        "w": 12,
+        "x": 0,
+        "y": 20
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "percentunit",
-          "custom": {
-            "drawStyle": "line",
-            "fillOpacity": 18,
-            "stacking": {
-              "mode": "none"
-            }
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
           }
         },
         "overrides": []
       },
       "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
           "calcs": [
-            "lastNotNull",
-            "max"
+            "lastNotNull"
           ]
-        },
-        "tooltip": {
-          "mode": "multi"
         }
       },
       "targets": [
         {
           "refId": "A",
           "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
+            "type": "loki",
+            "uid": "loki"
           },
-          "expr": "sum(rate(litellm_input_cached_tokens_metric_total[30m]))/clamp_min(sum(rate(litellm_input_tokens_metric_total[30m])),1)",
-          "legendFormat": "cache hit ratio"
+          "expr": "sum by (model)(sum_over_time({service_name=\"claude-code\"} | event_name=`api_request` | unwrap cache_read_tokens [$__range]))",
+          "queryType": "instant",
+          "legendFormat": "{{agent_type}}"
         }
       ]
     },
     {
       "id": 10,
       "type": "timeseries",
-      "title": "Run duration p95 / p50",
+      "title": "Request latency p95 (by model)",
       "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
+        "type": "loki",
+        "uid": "loki"
       },
       "gridPos": {
-        "h": 7,
-        "w": 8,
-        "x": 0,
+        "h": 8,
+        "w": 12,
+        "x": 12,
         "y": 20
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "s",
+          "unit": "ms",
           "custom": {
             "drawStyle": "line",
             "fillOpacity": 18,
@@ -575,216 +558,247 @@
         {
           "refId": "A",
           "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
+            "type": "loki",
+            "uid": "loki"
           },
-          "expr": "histogram_quantile(0.95, sum by (le)(rate(openclaw_run_duration_seconds_bucket[10m])))",
-          "legendFormat": "p95"
-        },
-        {
-          "refId": "B",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "histogram_quantile(0.50, sum by (le)(rate(openclaw_run_duration_seconds_bucket[10m])))",
-          "legendFormat": "p50"
+          "expr": "quantile_over_time(0.95, {service_name=\"claude-code\"} | event_name=`api_request` | unwrap duration_ms [$__interval]) by (model)",
+          "legendFormat": "{{model}}",
+          "queryType": "range"
         }
       ]
     },
     {
       "id": 11,
-      "type": "timeseries",
-      "title": "Model-call errors by category",
+      "type": "bargauge",
+      "title": "Subagent runs by type",
       "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
+        "type": "loki",
+        "uid": "loki"
       },
       "gridPos": {
-        "h": 7,
-        "w": 8,
-        "x": 8,
-        "y": 20
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 28
       },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "custom": {
-            "drawStyle": "line",
-            "fillOpacity": 18,
-            "stacking": {
-              "mode": "none"
-            }
+          "color": {
+            "mode": "palette-classic"
           }
         },
         "overrides": []
       },
       "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
           "calcs": [
-            "lastNotNull",
-            "max"
+            "lastNotNull"
           ]
-        },
-        "tooltip": {
-          "mode": "multi"
         }
       },
       "targets": [
         {
           "refId": "A",
           "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
+            "type": "loki",
+            "uid": "loki"
           },
-          "expr": "sum by (error_category)(rate(openclaw_model_call_total{error_category!=\"none\"}[10m])) or vector(0)",
-          "legendFormat": "{{error_category}}"
+          "expr": "sum by (agent_type) (count_over_time({service_name=\"claude-code\"} | event_name=`subagent_completed` [$__range]))",
+          "queryType": "instant",
+          "legendFormat": "{{agent_type}}"
         }
-      ],
-      "description": "Empty here means zero errors, which is the healthy case \u2014 the `or vector(0)` keeps the panel drawing a flat 0 line instead of reading \"No data\". Only `error_category=\"none\"` has ever been observed on this host."
+      ]
     },
     {
       "id": 12,
-      "type": "timeseries",
-      "title": "Queue depth / lane size",
+      "type": "bargauge",
+      "title": "Subagent tokens by type",
       "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
+        "type": "loki",
+        "uid": "loki"
       },
       "gridPos": {
-        "h": 7,
-        "w": 8,
-        "x": 16,
-        "y": 20
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 28
       },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "custom": {
-            "drawStyle": "line",
-            "fillOpacity": 18,
-            "stacking": {
-              "mode": "none"
-            }
+          "color": {
+            "mode": "palette-classic"
           }
         },
         "overrides": []
       },
       "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
           "calcs": [
-            "lastNotNull",
-            "max"
+            "lastNotNull"
           ]
-        },
-        "tooltip": {
-          "mode": "multi"
         }
       },
       "targets": [
         {
           "refId": "A",
           "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
+            "type": "loki",
+            "uid": "loki"
           },
-          "expr": "openclaw_session_queue_depth",
-          "legendFormat": "session q"
-        },
-        {
-          "refId": "B",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(openclaw_queue_lane_size)",
-          "legendFormat": "lane size"
+          "expr": "sum by (agent_type) (sum_over_time({service_name=\"claude-code\"} | event_name=`subagent_completed` | unwrap total_tokens [$__range]))",
+          "queryType": "instant",
+          "legendFormat": "{{agent_type}}"
         }
       ]
     },
     {
       "id": 13,
-      "type": "table",
-      "title": "Agent inventory (auto-onboarded)",
+      "type": "timeseries",
+      "title": "Subagent tokens over time (by type)",
       "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
+        "type": "loki",
+        "uid": "loki"
       },
       "gridPos": {
-        "h": 6,
-        "w": 24,
+        "h": 8,
+        "w": 12,
         "x": 0,
-        "y": 27
+        "y": 36
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 40,
+            "stacking": {
+              "mode": "normal"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
       },
       "targets": [
         {
           "refId": "A",
           "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
+            "type": "loki",
+            "uid": "loki"
           },
-          "expr": "openclaw_agent_info",
-          "format": "table",
-          "instant": true
+          "expr": "sum by (agent_type) (sum_over_time({service_name=\"claude-code\"} | event_name=`subagent_completed` | unwrap total_tokens [$__interval]))",
+          "legendFormat": "{{agent_type}}",
+          "queryType": "range"
         }
-      ],
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      }
+      ]
     },
     {
       "id": 14,
-      "type": "table",
-      "title": "Recent agent traces (Tempo \u2014 click to drill into a run)",
+      "type": "timeseries",
+      "title": "Subagent activity (by model)",
       "datasource": {
-        "type": "tempo",
-        "uid": "tempo"
+        "type": "loki",
+        "uid": "loki"
       },
       "gridPos": {
-        "h": 10,
-        "w": 24,
-        "x": 0,
-        "y": 33
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 36
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 40,
+            "stacking": {
+              "mode": "normal"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
       },
       "targets": [
         {
           "refId": "A",
           "datasource": {
-            "type": "tempo",
-            "uid": "tempo"
+            "type": "loki",
+            "uid": "loki"
           },
-          "queryType": "traceql",
-          "query": "{}",
-          "limit": 20,
-          "tableType": "traces"
+          "expr": "sum by (model) (count_over_time({service_name=\"claude-code\"} | event_name=`subagent_completed` [$__interval]))",
+          "legendFormat": "{{model}}",
+          "queryType": "range"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "type": "logs",
+      "title": "Recent Claude Code events (Loki \u2014 request/tool/subagent: model, tokens, agent_type)",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 24,
+        "x": 0,
+        "y": 44
+      },
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending",
+        "enableLogDetails": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{service_name=\"claude-code\"}",
+          "queryType": "range"
         }
       ]
     }
   ],
   "templating": {
-    "list": [
-      {
-        "name": "model",
-        "type": "query",
-        "datasource": {
-          "type": "prometheus",
-          "uid": "prometheus"
-        },
-        "query": "label_values(litellm_model_info, model)",
-        "includeAll": true,
-	        "allValue": ".*",
-        "multi": true,
-        "refresh": 2,
-        "current": {
-          "text": "All",
-          "value": "$__all"
-        }
-      }
-    ]
-  }
+    "list": []
+  },
+  "description": "Archived \u2014 superseded by AI & Agents / Agents (Composite), which runs the same panels scoped by service_name so pi and ralph appear alongside claude-code. Verified 2026-08-27: every query here still returns data. Kept for the claude-code-only view."
 }

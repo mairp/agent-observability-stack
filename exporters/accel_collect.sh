@@ -7,4 +7,5 @@ HERE="$(dirname "$(readlink -f "$0")")"
 "$HERE/intel_gpu_textfile.py" || true
 "$HERE/nvidia_gpu_textfile.sh" || true
 "$HERE/openclaw_textfile.sh" || true
+"$HERE/llamaswap_textfile.sh" || true
 "$HERE/qmd_textfile.sh" || true

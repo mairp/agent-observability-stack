@@ -47,18 +47,18 @@ tests:
             exp_annotations:
               summary: "RTX 3090 VRAM >95% (NVIDIA GeForce RTX 3090) — OOM risk for llama-server"
 
-  # llama.cpp inference server down should fire critical after 2m.
+  # llama-swap loader down should fire critical after 5m.
   - interval: 1m
     input_series:
-      - series: 'up{job="llama-arc"}'
-        values: '0 0 0 0'
+      - series: 'up{job="llama-swap"}'
+        values: '0 0 0 0 0 0'
     alert_rule_test:
-      - eval_time: 3m
-        alertname: LlamaArcDown
+      - eval_time: 6m
+        alertname: LlamaSwapDown
         exp_alerts:
-          - exp_labels: { severity: critical, job: "llama-arc" }
+          - exp_labels: { severity: critical, job: "llama-swap" }
             exp_annotations:
-              summary: "llama.cpp inference server (RTX 3090) /metrics unreachable"
+              summary: "llama-swap loader (RTX 3090) /metrics unreachable — GPU/loader down"
 
   # Daily spend over $5 should fire the budget alert.
   - interval: 1m

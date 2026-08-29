@@ -1,0 +1,4 @@
+# Removed Infinity datasource; LiteLLM inventory now uses Prometheus metrics (litellm_model_info).
+apiVersion: 1
+# Intentionally empty to avoid provisioning a non-existent plugin datasource.
+datasources: []

@@ -61,6 +61,17 @@ groups:
         annotations:
           summary: "RTX 3090 ({{ $labels.name }}) >85°C for 10m"
 
+      # roadmap 12.1 S3: gpu-watchdog.sh flips this to 1 on an Xid-79 off-bus wedge
+      # (or GPU absent/unresponsive) and sets /run/agentops/gpu-degraded. The agent
+      # fleet reads the flag and swaps leaf workers to Compass (DEGRADED mode). A
+      # wedge needs an OS reboot — this alert is the human's signal to act.
+      - alert: AgentOpsGPUDegraded
+        expr: agentops_gpu_degraded == 1
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: "RTX 3090 degraded (reason={{ $labels.reason }}) — agent fleet in DEGRADED mode; wedge => OS reboot (human)"
+
   - name: network
     rules:
       - alert: ProbeTargetDown
@@ -121,21 +132,16 @@ groups:
 
   - name: inference
     rules:
-      - alert: LlamaArcDown
-        expr: up{job="llama-arc"} == 0
-        for: 2m
+      # llama-swap replaced the always-on llama-arc container (2026-07-01). It loads models on
+      # demand and unloads after idle, but the llama-swap process itself stays up — so a DOWN
+      # target means the loader/GPU is actually gone, not just idle.
+      - alert: LlamaSwapDown
+        expr: up{job="llama-swap"} == 0
+        for: 5m
         labels: { severity: critical }
         annotations:
-          summary: "llama.cpp inference server (RTX 3090) /metrics unreachable"
+          summary: "llama-swap loader (RTX 3090) /metrics unreachable — GPU/loader down"
 
-      # Windowed decode tok/s collapses while the server is actively decoding — signals MTP
-      # mis-acceptance, GPU contention, or a stuck slot (baseline is ~41 no-MTP / ~55+ with MTP).
-      - alert: LlamaDecodeCollapse
-        expr: |
-          (rate(llamacpp:tokens_predicted_total[5m])
-             / clamp_min(rate(llamacpp:tokens_predicted_seconds_total[5m]), 0.001)) < 20
-          and rate(llamacpp:n_decode_total[5m]) > 0
-        for: 10m
-        labels: { severity: warning }
-        annotations:
-          summary: "llama.cpp decode throughput <20 tok/s for 10m while actively generating"
+      # NOTE: the old LlamaDecodeCollapse alert (windowed decode tok/s) was retired with the
+      # llama-swap migration — per-token llamacpp:* metrics are no longer scraped (see the
+      # llama-swap scrape-job comment in prometheus.yml).

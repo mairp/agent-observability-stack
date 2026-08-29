@@ -8,7 +8,7 @@
     "nvidia"
   ],
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "editable": true,
   "refresh": "30s",
   "time": {
@@ -17,6 +17,358 @@
   },
   "timezone": "browser",
   "panels": [
+    {
+      "id": 100,
+      "type": "stat",
+      "title": "NVIDIA RTX 3090 (eGPU)",
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Every NVIDIA panel below is driven by exporters/nvidia_gpu_textfile.sh. ABSENT means the Thunderbolt eGPU is powered down or wedged (Xid 79 'fell off the bus', which only a host reboot clears) \u2014 the panels below will read No data, and that is the correct rendering of a card that is not there. Fixed 2026-08-27: nvidia-smi prints \"No devices were found\" on STDOUT, which the collector used to count as a sample and publish present=1, hiding exactly this outage behind No-data panels.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "ABSENT",
+                  "color": "red",
+                  "index": 0
+                },
+                "1": {
+                  "text": "PRESENT",
+                  "color": "green",
+                  "index": 1
+                }
+              }
+            },
+            {
+              "type": "special",
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "COLLECTOR DOWN",
+                  "color": "purple",
+                  "index": 2
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": true,
+          "legendFormat": "NVIDIA RTX 3090 (eGPU)",
+          "expr": "nvidia_gpu_present"
+        }
+      ]
+    },
+    {
+      "id": 101,
+      "type": "stat",
+      "title": "Intel iGPU",
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Driven by exporters/intel_gpu_textfile.py (intel_gpu_top). ABSENT means intel_gpu_top produced no sample on this boot. The iGPU is embeddings/rerank-only on this host, so long ABSENT stretches are expected, not a broken dashboard.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "ABSENT",
+                  "color": "red",
+                  "index": 0
+                },
+                "1": {
+                  "text": "PRESENT",
+                  "color": "green",
+                  "index": 1
+                }
+              }
+            },
+            {
+              "type": "special",
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "COLLECTOR DOWN",
+                  "color": "purple",
+                  "index": 2
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": true,
+          "legendFormat": "Intel iGPU",
+          "expr": "intel_gpu_present"
+        }
+      ]
+    },
+    {
+      "id": 102,
+      "type": "stat",
+      "title": "Intel NPU",
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Driven by exporters/intel_npu_textfile.sh (sysfs). ABSENT means the NPU sysfs nodes were not readable.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "ABSENT",
+                  "color": "red",
+                  "index": 0
+                },
+                "1": {
+                  "text": "PRESENT",
+                  "color": "green",
+                  "index": 1
+                }
+              }
+            },
+            {
+              "type": "special",
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "COLLECTOR DOWN",
+                  "color": "purple",
+                  "index": 2
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": true,
+          "legendFormat": "Intel NPU",
+          "expr": "intel_npu_present"
+        }
+      ]
+    },
+    {
+      "id": 103,
+      "type": "stat",
+      "title": "Fleet GPU verdict (watchdog)",
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "agentops_gpu_degraded from gpu-watchdog.timer \u2014 the authoritative wedge signal, and what the AgentOpsGPUDegraded alert fires on. It flips to 1 on an Xid-79 'fell off the bus' event, where the card is still PCIe-enumerated but unresponsive and only a host reboot clears it. Read it together with the NVIDIA tile: PRESENT + DEGRADED means enumerated-but-wedged.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "HEALTHY",
+                  "color": "green",
+                  "index": 0
+                },
+                "1": {
+                  "text": "DEGRADED",
+                  "color": "red",
+                  "index": 1
+                }
+              }
+            },
+            {
+              "type": "special",
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "WATCHDOG DOWN",
+                  "color": "purple",
+                  "index": 2
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": true,
+          "legendFormat": "Fleet GPU verdict",
+          "expr": "agentops_gpu_degraded"
+        }
+      ]
+    },
     {
       "id": 1,
       "type": "stat",
@@ -29,7 +381,7 @@
         "h": 4,
         "w": 6,
         "x": 0,
-        "y": 0
+        "y": 5
       },
       "fieldConfig": {
         "defaults": {
@@ -90,7 +442,7 @@
         "h": 4,
         "w": 6,
         "x": 6,
-        "y": 0
+        "y": 5
       },
       "fieldConfig": {
         "defaults": {
@@ -143,7 +495,7 @@
         "h": 4,
         "w": 6,
         "x": 12,
-        "y": 0
+        "y": 5
       },
       "fieldConfig": {
         "defaults": {
@@ -196,7 +548,7 @@
         "h": 4,
         "w": 6,
         "x": 18,
-        "y": 0
+        "y": 5
       },
       "fieldConfig": {
         "defaults": {
@@ -257,7 +609,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 4
+        "y": 9
       },
       "fieldConfig": {
         "defaults": {
@@ -309,7 +661,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 4
+        "y": 9
       },
       "fieldConfig": {
         "defaults": {
@@ -370,7 +722,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 12
+        "y": 17
       },
       "fieldConfig": {
         "defaults": {
@@ -422,7 +774,7 @@
         "h": 8,
         "w": 6,
         "x": 12,
-        "y": 12
+        "y": 17
       },
       "fieldConfig": {
         "defaults": {
@@ -474,7 +826,7 @@
         "h": 8,
         "w": 6,
         "x": 18,
-        "y": 12
+        "y": 17
       },
       "fieldConfig": {
         "defaults": {
@@ -526,7 +878,7 @@
         "h": 4,
         "w": 6,
         "x": 0,
-        "y": 20
+        "y": 25
       },
       "fieldConfig": {
         "defaults": {
@@ -579,7 +931,7 @@
         "h": 4,
         "w": 6,
         "x": 6,
-        "y": 20
+        "y": 25
       },
       "fieldConfig": {
         "defaults": {
@@ -632,7 +984,7 @@
         "h": 4,
         "w": 6,
         "x": 12,
-        "y": 20
+        "y": 25
       },
       "fieldConfig": {
         "defaults": {
@@ -685,7 +1037,7 @@
         "h": 4,
         "w": 6,
         "x": 18,
-        "y": 20
+        "y": 25
       },
       "fieldConfig": {
         "defaults": {
@@ -738,7 +1090,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 24
+        "y": 29
       },
       "fieldConfig": {
         "defaults": {
@@ -799,7 +1151,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 24
+        "y": 29
       },
       "fieldConfig": {
         "defaults": {
@@ -851,7 +1203,7 @@
         "h": 4,
         "w": 6,
         "x": 0,
-        "y": 32
+        "y": 37
       },
       "fieldConfig": {
         "defaults": {
@@ -912,7 +1264,7 @@
         "h": 4,
         "w": 6,
         "x": 6,
-        "y": 32
+        "y": 37
       },
       "fieldConfig": {
         "defaults": {
@@ -973,7 +1325,7 @@
         "h": 4,
         "w": 6,
         "x": 12,
-        "y": 32
+        "y": 37
       },
       "fieldConfig": {
         "defaults": {
@@ -1034,7 +1386,7 @@
         "h": 4,
         "w": 6,
         "x": 18,
-        "y": 32
+        "y": 37
       },
       "fieldConfig": {
         "defaults": {
@@ -1095,7 +1447,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 36
+        "y": 41
       },
       "fieldConfig": {
         "defaults": {
@@ -1147,7 +1499,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 36
+        "y": 41
       },
       "fieldConfig": {
         "defaults": {
@@ -1217,7 +1569,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 44
+        "y": 49
       },
       "fieldConfig": {
         "defaults": {
@@ -1269,7 +1621,7 @@
         "h": 8,
         "w": 6,
         "x": 12,
-        "y": 44
+        "y": 49
       },
       "fieldConfig": {
         "defaults": {
@@ -1330,7 +1682,7 @@
         "h": 8,
         "w": 6,
         "x": 18,
-        "y": 44
+        "y": 49
       },
       "fieldConfig": {
         "defaults": {
@@ -1381,23 +1733,7 @@
     }
   ],
   "templating": {
-    "list": [
-      {
-        "name": "model",
-        "type": "query",
-        "datasource": {
-          "type": "prometheus",
-          "uid": "prometheus"
-        },
-        "query": "label_values(litellm_spend_metric_total, model)",
-        "includeAll": true,
-        "multi": true,
-        "refresh": 2,
-        "current": {
-          "text": "All",
-          "value": "$__all"
-        }
-      }
-    ]
-  }
+    "list": []
+  },
+  "description": "Hardware accelerators. The three tiles on the top row say whether each device is actually present \u2014 read them first: a No-data panel below a red ABSENT tile is correct behaviour, not a broken query."
 }

@@ -11,7 +11,7 @@ Prometheus evaluates the rules in `prometheus/rules/`; Alertmanager routes them 
 | network      | ProbeTargetDown / ProbeHighLatency | blackbox down / >2s |
 | containers   | ContainerRestartLoop | repeated restarts |
 | agents       | OpenClawGatewayDown / ModelCallLatencyP95High / ModelCallErrorSpike / LiteLLMProxyDown | telemetry/SLO |
-| inference    | LlamaArcDown / LlamaDecodeCollapse | llama.cpp /metrics down / decode <20 tok/s while generating |
+| inference    | LlamaSwapDown | llama-swap loader (RTX 3090) /metrics down for 5m |
 | agent-budgets| DailySpendBudgetExceeded / ModelDailySpendBudgetExceeded | LiteLLM 24h spend over budget |
 
 Rules are **label-matched** (by `model`, `instance`, …), so they cover new agents/models automatically.

@@ -1,9 +1,0 @@
-apiVersion: 1
-datasources:
-  - name: QMD-Infinity
-    type: yesoreyeram-infinity-datasource
-    uid: qmd-infinity
-    access: proxy
-    isDefault: false
-    jsonData:
-      global_queries: []

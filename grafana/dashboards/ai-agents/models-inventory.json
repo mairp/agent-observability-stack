@@ -1,0 +1,29 @@
+{
+  "uid": "litellm-models",
+  "title": "Models — LiteLLM Inventory",
+  "tags": ["ai", "litellm"],
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "30s",
+  "time": {"from": "now-6h", "to": "now"},
+  "timezone": "browser",
+  "panels": [
+    {
+      "id": 1,
+      "type": "table",
+      "title": "Configured models (LiteLLM metrics)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 18, "w": 24, "x": 0, "y": 0},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "litellm_model_info",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "options": {"showHeader": true}
+    }
+  ]
+}

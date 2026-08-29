@@ -30,9 +30,10 @@ Provisioned as code from `bin/gen-dashboards.py` into two Grafana folders.
 - **Accelerators**: `intel_gpu_*` / `intel_npu_*` / `nvidia_gpu_*` from the host textfile collectors; iGPU
   memory is summed per-client `resident` from `intel_gpu_top` (shared system RAM); NVIDIA VRAM is dedicated
   (`nvidia_gpu_memory_*`, incl. `nvidia_gpu_process_memory_bytes{process,pid}`).
-- **LLM Inference**: `llamacpp:*` from the llama.cpp `--metrics` endpoint (job `llama-arc`). Decode tok/s =
-  `rate(tokens_predicted_total)/rate(tokens_predicted_seconds_total)`; **MTP acceptance** =
-  `tokens_predicted_total / n_decode_total`. (This build has **no** `llamacpp:kv_cache_*`.)
+- **LLM Inference**: `llamaswap_*` GPU + system gauges from `llama-swap`'s `/metrics` (job `llama-swap`) —
+  GPU util/power/temp/VRAM/fan + host load. Models load on demand and unload after 900s idle, so these
+  read near-zero when nothing is loaded (expected). Per-token decode/prefill/MTP `llamacpp:*` metrics were
+  retired with the llama-swap migration (2026-07-01) — see the scrape-job comment in `prometheus.yml`.
 - **Memory breakdown**: `node_memory_*` + `intel_gpu_memory_bytes` + `intel_npu_memory_bytes`.
 - **Top processes** (`namedprocess_namegroup_*` from **process-exporter**): per-program RSS + CPU,
   grouped by command name (`{{.Comm}}` — chromium tabs summed, etc.). `topk()` for the leaderboard.

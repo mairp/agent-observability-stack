@@ -22,6 +22,7 @@ GPASS = os.environ.get("GRAFANA_PASSWORD", "admin")
 PROM = os.environ.get("PROM_URL", "http://prometheus:9090").rstrip("/")
 # Browser-reachable Grafana base (for clickable links in messages); internal render URL is not.
 GRAFANA_PUBLIC = os.environ.get("GRAFANA_PUBLIC_URL", "").rstrip("/")
+LOKI = os.environ.get("LOKI_URL", "http://loki:3100").rstrip("/")
 RW = int(os.environ.get("RENDER_WIDTH", "1600"))
 RH = int(os.environ.get("RENDER_HEIGHT", "1300"))
 API = f"https://api.telegram.org/bot{TOKEN}"
@@ -59,6 +60,24 @@ DASH = {
     "space": ("qmd-vector-space", "qmd-vector-space", "QMD Vector Space"),
     "embeddings": ("qmd-vector-space", "qmd-vector-space", "QMD Vector Space"),
     "pca": ("qmd-vector-space", "qmd-vector-space", "QMD Vector Space"),
+    # Composite: Claude Code vs pi
+    "composite": ("agents-composite", "agents-composite", "Agents — Claude Code vs pi"),
+    "agents-composite": ("agents-composite", "agents-composite", "Agents — Claude Code vs pi"),
+    "both": ("agents-composite", "agents-composite", "Agents — Claude Code vs pi"),
+    "claude-vs-pi": ("agents-composite", "agents-composite", "Agents — Claude Code vs pi"),
+    # Ralph autonomous loops (Loki-backed)
+    "ralph": ("ralph-loops", "ralph-loops", "Ralph Loops (multi-harness)"),
+    "ralph-loops": ("ralph-loops", "ralph-loops", "Ralph Loops (multi-harness)"),
+    "loops": ("ralph-loops", "ralph-loops", "Ralph Loops (multi-harness)"),
+    "loop": ("ralph-loops", "ralph-loops", "Ralph Loops (multi-harness)"),
+    # Local inference (llama.cpp on the RTX 3090)
+    "inference": ("inference-llama", "inference-llama", "LLM Inference — llama.cpp + MTP (RTX 3090)"),
+    "llama": ("inference-llama", "inference-llama", "LLM Inference — llama.cpp + MTP (RTX 3090)"),
+    "mtp": ("inference-llama", "inference-llama", "LLM Inference — llama.cpp + MTP (RTX 3090)"),
+    # Agent mix — frontier fading (12.1)
+    "agent-mix": ("agent-mix", "agent-mix", "Agent Mix — Frontier Fading (12.1)"),
+    "mix": ("agent-mix", "agent-mix", "Agent Mix — Frontier Fading (12.1)"),
+    "frontier-fading": ("agent-mix", "agent-mix", "Agent Mix — Frontier Fading (12.1)"),
 }
 
 # Dashboards whose full render is unusable headless (e.g. a WebGL scatter3d panel that the
@@ -81,6 +100,8 @@ def days(v): return f"{float(v):.2f} d"
 def gb(v): return f"{float(v)/1e9:.2f} GB"
 def mb(v): return f"{float(v)/1e6:.0f} MB"
 
+# per-uid value summaries: (label, expr, fmt, "loki"|"prom")
+# source field tells values_text which query helper to use
 SUMMARY = {
     "host": [
         ("CPU busy", '100-(avg(rate(node_cpu_seconds_total{mode="idle"}[5m]))*100)', pct),
@@ -136,11 +157,89 @@ SUMMARY = {
         ("Collections", 'count(qmd_documents_total)', num),
     ],
     "containers": [
-        ("Containers", 'count(container_last_seen{name!=""})', num),
-        ("Total mem", 'sum(container_memory_working_set_bytes{name!=""})', gb),
-        ("Total CPU/s", 'sum(rate(container_cpu_usage_seconds_total{name!=""}[5m]))', num1),
+        ("Containers", 'count(container_last_seen{name!=""})', num, "prom"),
+        ("Total mem", 'sum(container_memory_working_set_bytes{name!=""})', gb, "prom"),
+        ("Total CPU/s", 'sum(rate(container_cpu_usage_seconds_total{name!=""}[5m]))', num1, "prom"),
+    ],
+    "agents-composite": [
+        ("CC cost 24h", '{service_name=~"$service"} | event_name=`api_request` | unwrap cost_usd', usd, "loki"),
+        ("CC tokens 24h", '{service_name=~"$service"} | event_name=`api_request` | unwrap output_tokens', num, "loki"),
+        ("CC cache-read", '{service_name=~"$service"} | event_name=`api_request` | unwrap cache_read_tokens', num, "loki"),
+        ("CC requests", '{service_name=~"$service"} | event_name=`api_request`', num, "loki"),
+    ],
+    "ralph-loops": [
+        ("Runs 24h", 'sum(count_over_time({job="ralph", event="run_start"} [24h]))', num, "loki"),
+        ("Iterations 24h", 'sum(count_over_time({job="ralph", event="iter_start"} [24h]))', num, "loki"),
+        ("Cost 24h", 'sum(increase(ralph_cost_usd_total[24h])) or vector(0)', usd),
+        ("Out tokens 24h", 'sum(increase(ralph_tokens_total{type="output"}[24h])) or vector(0)', num),
+        ("Tool calls 24h", 'sum(increase(ralph_tool_use_total[24h])) or vector(0)', num),
+        ("Errors 24h", 'sum(increase(ralph_errors_total[24h])) or vector(0)', num),
     ],
 }
+
+
+# ---------------------------------------------------------------------------
+# Dynamic dashboard discovery — so any NEW dashboard created in Grafana is
+# retrievable without editing the curated DASH map above. Grafana's search API
+# is the source of truth; results are cached briefly and folded into resolve().
+# ---------------------------------------------------------------------------
+DISCOVERY_TTL = int(os.environ.get("DISCOVERY_TTL", "120"))  # seconds
+_disco = {"at": 0.0, "by_uid": {}, "by_key": {}}  # uid->(uid,slug,title); alias->uid
+
+
+def _slug_from_url(url, uid):
+    """Grafana search returns url like '/d/<uid>/<slug>'. Pull the slug (fallback uid)."""
+    try:
+        tail = url.split(f"/d/{uid}/", 1)[1]
+        return tail.split("/", 1)[0].split("?", 1)[0] or uid
+    except Exception:
+        return uid
+
+
+def grafana_search():
+    """Return [(uid, slug, title)] for every dashboard Grafana knows about, or [] on error."""
+    try:
+        r = requests.get(f"{GRAFANA}/api/search", params={"type": "dash-db", "limit": 500},
+                         auth=(GUSER, GPASS), timeout=10)
+        if r.status_code != 200:
+            return []
+        out = []
+        for d in r.json():
+            uid = d.get("uid")
+            title = d.get("title")
+            if not uid or not title:
+                continue
+            out.append((uid, _slug_from_url(d.get("url", ""), uid), title))
+        return out
+    except Exception:
+        return []
+
+
+def _title_keys(title):
+    """Derive lowercase lookup aliases from a dashboard title (whole + significant words)."""
+    t = title.lower()
+    keys = {t, re.sub(r"[^a-z0-9]+", "-", t).strip("-")}
+    for w in re.split(r"[^a-z0-9]+", t):
+        if len(w) >= 3 and w not in ("the", "and", "for", "vs"):
+            keys.add(w)
+    return {k for k in keys if k}
+
+
+def discover(force=False):
+    """Refresh the discovery cache if stale. Returns {uid: (uid, slug, title)}."""
+    now = time.time()
+    if not force and _disco["by_uid"] and (now - _disco["at"]) < DISCOVERY_TTL:
+        return _disco["by_uid"]
+    found = grafana_search()
+    if not found and _disco["by_uid"]:
+        return _disco["by_uid"]  # keep the last good snapshot on a transient failure
+    by_uid, by_key = {}, {}
+    for uid, slug, title in found:
+        by_uid[uid] = (uid, slug, title)
+        for k in _title_keys(title) | {uid}:
+            by_key.setdefault(k, uid)  # curated DASH still wins in resolve(); first title wins here
+    _disco.update(at=now, by_uid=by_uid, by_key=by_key)
+    return by_uid
 
 
 def promq(expr):
@@ -152,11 +251,29 @@ def promq(expr):
         return None
 
 
+def lokiq(expr):
+    """Query Loki via /loki/api/v1/query. Returns the scalar result string or None."""
+    try:
+        r = requests.get(f"{LOKI}/loki/api/v1/query", params={"query": expr}, timeout=10)
+        res = r.json()["data"]["result"]
+        if res:
+            # Loki returns {metric:{}, value:[ts, scalar]}
+            return res[0]["value"][1]
+        return None
+    except Exception:
+        return None
+
+
 def values_text(uid):
     rows = SUMMARY.get(uid, [])
     out = []
-    for label, expr, fmt in rows:
-        v = promq(expr)
+    for row in rows:
+        label, expr, fmt = row[0], row[1], row[2]
+        source = row[3] if len(row) > 3 else "prom"
+        if source == "loki":
+            v = lokiq(expr)
+        else:
+            v = promq(expr)
         out.append(f"  {label:<13} {fmt(v) if v is not None else 'n/a'}")
     return "\n".join(out)
 
@@ -214,14 +331,29 @@ HELP = (
     "/values &lt;dashboard&gt; [range] — values only\n"
     "/alerts — firing alerts\n"
     "/list — dashboards\n\n"
-    "dashboards: host, accelerators, network, containers, agents, claude-code, llm-cost, rag, vectors\n"
+    "dashboards: host, accelerators, network, containers, agents, claude-code, llm-cost, rag, vectors, ralph, inference\n"
+    "any dashboard in Grafana works too — use its uid (see /list)\n"
     "range: 1h (default 3h), 6h, 24h, 7d\n"
-    "e.g. <code>/graph agents 24h</code>"
+    "e.g. <code>/graph ralph 24h</code>"
 )
 
 
 def resolve(name):
-    return DASH.get((name or "").lower().lstrip("#"))
+    """Resolve a user token to (uid, slug, title).
+
+    Curated DASH aliases win (hand-tuned titles/summaries); anything else falls back
+    to live Grafana discovery so newly-created dashboards resolve with no code change.
+    """
+    key = (name or "").lower().lstrip("#")
+    if key in DASH:
+        return DASH[key]
+    by_uid = discover()
+    if key in by_uid:                      # exact uid match
+        return by_uid[key]
+    uid = _disco["by_key"].get(key)        # title / word alias match
+    if uid and uid in by_uid:
+        return by_uid[uid]
+    return None
 
 
 def handle(chat, text):
@@ -231,8 +363,15 @@ def handle(chat, text):
     if cmd in ("/start", "/help"):
         send(chat, HELP)
     elif cmd == "/list":
-        names = sorted({v[0] for v in DASH.values()})
-        send(chat, "Dashboards:\n" + "\n".join(f"  • {n}" for n in names))
+        curated = {v[0]: v[2] for v in DASH.values()}   # uid -> title
+        live = discover()                                 # uid -> (uid, slug, title)
+        merged = {uid: curated.get(uid, live[uid][2]) for uid in set(curated) | set(live)}
+        for uid, title in curated.items():
+            merged.setdefault(uid, title)
+        lines = [f"  • {uid}" + (f" — {merged[uid]}" if merged.get(uid) else "")
+                 for uid in sorted(merged)]
+        note = "" if live else "\n(live discovery unavailable — showing curated set)"
+        send(chat, "Dashboards:\n" + "\n".join(lines) + note)
     elif cmd == "/alerts":
         res = []
         try:

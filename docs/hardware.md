@@ -55,13 +55,15 @@ awk emits dot decimals, atomic write, safe no-op if `nvidia-smi`/the card is abs
 Surfaced on the **Accelerators** dashboard (NVIDIA RTX 3090 row). Alerts: `NvidiaVRAMHigh` (>95%, OOM
 risk), `NvidiaGPUHot` (>85°C), `NvidiaGPUSaturated`.
 
-## llama.cpp inference metrics
-The RTX 3090 inference server (`llama-arc`, llama.cpp `server-cuda`) runs with `--metrics`, exposing
-`llamacpp:*` at `:8080/metrics`. Prometheus scrapes it directly over the shared `litellm_default`
-network (job `llama-arc`). The **LLM Inference — llama.cpp + MTP** dashboard (ai-agents) shows
-decode/prefill tok/s, queue depth, and the **MTP speculative signal**
-`llamacpp:tokens_predicted_total / llamacpp:n_decode_total` (≈ tokens accepted per decode; 1.0 = no
-speculation, ~2.4 observed with Qwen3.6 MTP). Alerts: `LlamaArcDown`, `LlamaDecodeCollapse`.
+## llama-swap inference metrics
+The RTX 3090 is served by **llama-swap** (`ghcr.io/mostlygeek/llama-swap:cuda`), an on-demand loader that
+replaced the always-on `llama-arc` container (2026-07-01). It exposes `llamaswap_*` system + GPU gauges at
+`:8080/metrics`. Prometheus scrapes it directly over the shared `litellm_default` network (job
+`llama-swap`). The **LLM Inference — llama.cpp + MTP** dashboard (ai-agents) shows GPU
+util/power/temp/VRAM/fan + host load. Because models load on demand and unload after 900s idle, these read
+near-zero when nothing is loaded (expected, not an outage). Per-token `llamacpp:*` decode/prefill/MTP
+metrics are **not** scraped: they live on the upstream llama-server behind `/upstream/<model>` and
+scraping them would trigger a model load every interval and defeat the idle TTL. Alert: `LlamaSwapDown`.
 
 **Firewall requirement (important):** node-exporter runs `network_mode: host`, and the dockerised
 Prometheus scrapes it via `host.docker.internal:9100`. The host's `INPUT` policy is `DROP`, so
