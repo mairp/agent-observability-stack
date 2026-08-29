@@ -1,0 +1,367 @@
+{
+  "uid": "governed-run-lifecycle",
+  "title": "Governed Run Lifecycle (15.1)",
+  "tags": [
+    "governed",
+    "15.1",
+    "agentops",
+    "trace"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "trace_id",
+        "label": "trace_id",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "description": "The W3C trace_id that keys the whole run across ClickHouse spans, Loki events and the Postgres audit chain. Paste the demo run's trace_id."
+      },
+      {
+        "name": "run_id",
+        "label": "run_id",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "description": "The controller run_id (== AGENTPACK_CONTRACT_ID). Filters the same events by contract_id when trace_id is not to hand."
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "About",
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**Governed run lifecycle**, keyed on a single `trace_id` / `run_id`. Every governed hop (`agentops emit`) carries the controller-minted `trace_id`+`contract_id`, so filtering `{job=\"agentops\"}` by them replays the whole chain from one store. The SAME `trace_id` keys the ClickHouse `spans_v1` and the same `run_id` keys the Postgres `audit_events` chain (see RUNBOOK.md \u00a7\"Read a trace across the three stores\"). Set the `trace_id` variable (top-left) to the demo run's id.\n\n---\n\n**Empty is not broken (verified 2026-08-27).** Every query here targets `job=\"agentops\"`, written by `agent-pack/bin/agentops-ship.py` (`dispatch | escalation | verdict | adhoc | dispatch_start`). That vocabulary is correct and the shipper is installed \u2014 but no governed agent-pack run has executed inside Loki's 7-day retention (the only `agentops` line in the window is a `test_governed_fleet_probe` from 2026-08-26). So these panels read *No data* because the fleet has been idle on this path, **not** because the queries are wrong. Run a governed card and they populate. If they are still empty after a run, the shipper is not reaching Loki \u2014 check `agentops-ship.py --loki`."
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Governed events (this trace)",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum(count_over_time({job=\"agentops\"} |= \"$trace_id\" [$__range]))",
+          "queryType": "instant"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "PMO gate decisions",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum(count_over_time({job=\"agentops\", event=~\"pmo_gate|sdd_dispatch\"} |= \"$trace_id\" [$__range]))",
+          "queryType": "instant"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Wiggum events relayed",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "purple"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum(count_over_time({job=\"agentops\", event=\"wiggum_event\"} |= \"$trace_id\" [$__range]))",
+          "queryType": "instant"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Final verdict",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum(count_over_time({job=\"agentops\", event=~\"sdd_verdict|sdd_card_verdict\"} |= \"$trace_id\" [$__range]))",
+          "queryType": "instant"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Lifecycle events over time (by event type)",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 11
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 60,
+            "stacking": {
+              "mode": "normal"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "sum"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum by (event) (count_over_time({job=\"agentops\"} |= \"$trace_id\" [1m]))",
+          "queryType": "range",
+          "legendFormat": "{{event}}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "logs",
+      "title": "Governed chain \u2014 raw events for this trace (card -> packet -> PMO gate -> spec -> Wiggum -> verdict)",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 19
+      },
+      "options": {
+        "showTime": true,
+        "sortOrder": "Ascending",
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "dedupStrategy": "none"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{job=\"agentops\"} |= \"$trace_id\"",
+          "queryType": "range"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "logs",
+      "title": "By run_id (contract_id) \u2014 same chain, alternate key",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 31
+      },
+      "options": {
+        "showTime": true,
+        "sortOrder": "Ascending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{job=\"agentops\"} |= \"$run_id\"",
+          "queryType": "range"
+        }
+      ]
+    }
+  ]
+}

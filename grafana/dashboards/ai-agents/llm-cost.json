@@ -1,70 +1,152 @@
 {
   "uid": "llm-cost",
   "title": "LLM Cost & Consumption (Unified)",
-  "tags": [
-    "ai",
-    "cost"
-  ],
+  "tags": ["ai", "cost"],
   "schemaVersion": 39,
-  "version": 2,
+  "version": 3,
   "editable": true,
   "refresh": "30s",
-  "time": {
-    "from": "now-6h",
-    "to": "now"
-  },
+  "time": { "from": "now-6h", "to": "now" },
   "timezone": "browser",
+  "templating": {
+    "list": [
+      {
+        "name": "service",
+        "label": "Agent service (Loki meter)",
+        "type": "query",
+        "datasource": { "type": "loki", "uid": "loki" },
+        "query": "label_values({service_name!=\"\"}, service_name)",
+        "includeAll": true,
+        "multi": true,
+        "refresh": 2,
+        "current": { "text": "All", "value": "$__all" }
+      },
+      {
+        "name": "model",
+        "label": "Model (LiteLLM meter)",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(litellm_model_info, model)",
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "refresh": 2,
+        "current": { "text": "All", "value": "$__all" }
+      }
+    ]
+  },
   "panels": [
+    {
+      "id": 20,
+      "type": "text",
+      "title": "Two meters, one bill — read this before trusting a number",
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 0 },
+      "options": {
+        "mode": "markdown",
+        "content": "**Agent meter (Loki, `$service`)** — each agent self-reports `cost_usd` on its `api_request` event. Only agents talking *straight to a vendor API* know their price: today that is **claude-code**. `pi` emits `cost_usd=0` for every call because its OpenAI-compatible provider returns no cost in `usage` — so it is **excluded from spend by design** (`| cost_usd != 0`) rather than shown as a misleading $0.00. Its tokens and requests are still counted below.\n\n**Proxy meter (Prometheus, `litellm_spend_metric_total`, `$model`)** — LiteLLM prices every call that crosses the proxy: `pi`, `bebop`, OpenClaw agents, Compass `gpt-5` / `gpt-5.6-sol`, and the local llama-swap models (which correctly price at $0). **This is where pi's real spend lives.**\n\nThe two meters are disjoint — claude-code does not cross the proxy — so *Total spend* is their sum. Prometheus retains 30d, Loki only 7d: ranges beyond 7d show proxy spend only."
+      }
+    },
     {
       "id": 1,
       "type": "stat",
-      "title": "Spend (range) by service",
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 8,
-        "x": 0,
-        "y": 0
-      },
+      "title": "Spend (range) — agent-reported",
+      "description": "Loki meter. Agents with no cost source (pi) are filtered out instead of rendering a false $0.00 — if pi ever starts reporting real cost it appears here automatically.",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
       "fieldConfig": {
         "defaults": {
           "unit": "currencyUSD",
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
+          "decimals": 2,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
         },
         "overrides": []
       },
       "options": {
         "colorMode": "value",
         "graphMode": "area",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        }
+        "reduceOptions": { "calcs": ["lastNotNull"] }
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "sum by (service_name)(sum_over_time({service_name=~\"$service\"} | event_name=`api_request` | unwrap cost_usd [$__range]))",
-          "queryType": "instant"
+          "datasource": { "type": "loki", "uid": "loki" },
+          "queryType": "instant",
+          "expr": "sum by (service_name)(sum_over_time({service_name=~\"$service\"} | event_name=`api_request` | cost_usd != `0` | unwrap cost_usd [$__range]))"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Spend (range) — LiteLLM proxy",
+      "description": "Prometheus meter. Covers pi, bebop and OpenClaw. Local llama-swap models price at $0, which is correct, not missing data.",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 2,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": { "calcs": ["lastNotNull"] }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "instant": true,
+          "expr": "sum(increase(litellm_spend_metric_total{model=~\"$model\"}[$__range])) or vector(0)"
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "type": "stat",
+      "title": "Total spend (range, both meters)",
+      "description": "Agent-reported + LiteLLM proxy. The two are disjoint: claude-code bypasses the proxy, everything else crosses it.",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 4 },
+      "datasource": { "type": "datasource", "uid": "-- Mixed --" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 2,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": { "calcs": ["lastNotNull"] }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "hide": true,
+          "datasource": { "type": "loki", "uid": "loki" },
+          "queryType": "instant",
+          "expr": "sum(sum_over_time({service_name=~\"$service\"} | event_name=`api_request` | cost_usd != `0` | unwrap cost_usd [$__range])) or vector(0)"
+        },
+        {
+          "refId": "B",
+          "hide": true,
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "instant": true,
+          "expr": "sum(increase(litellm_spend_metric_total{model=~\"$model\"}[$__range])) or vector(0)"
+        },
+        {
+          "refId": "C",
+          "datasource": { "type": "__expr__", "uid": "__expr__" },
+          "type": "math",
+          "expression": "$A + $B"
         }
       ]
     },
@@ -72,458 +154,165 @@
       "id": 2,
       "type": "stat",
       "title": "Requests (range) by service",
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 8,
-        "x": 8,
-        "y": 0
-      },
+      "description": "Valid for every agent including pi — request counting needs no pricing source.",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 4 },
+      "datasource": { "type": "loki", "uid": "loki" },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
         },
         "overrides": []
       },
       "options": {
         "colorMode": "value",
         "graphMode": "area",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        }
+        "reduceOptions": { "calcs": ["lastNotNull"] }
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "sum by (service_name)(count_over_time({service_name=~\"$service\"} | event_name=`api_request` [$__range]))",
-          "queryType": "instant"
-        }
-      ]
-    },
-    {
-      "id": 3,
-      "type": "stat",
-      "title": "OpenClaw/LiteLLM spend (24h)",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 8,
-        "x": 16,
-        "y": 0
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "currencyUSD",
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(increase(litellm_spend_metric_total[24h])) or vector(0)",
-          "legendFormat": ""
+          "datasource": { "type": "loki", "uid": "loki" },
+          "queryType": "instant",
+          "expr": "sum by (service_name)(count_over_time({service_name=~\"$service\"} | event_name=`api_request` [$__range]))"
         }
       ]
     },
     {
       "id": 4,
       "type": "timeseries",
-      "title": "Spend by model (selected services)",
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 4
-      },
+      "title": "Spend by model — agent-reported",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "loki", "uid": "loki" },
       "fieldConfig": {
-        "defaults": {
-          "unit": "currencyUSD",
-          "custom": {
-            "drawStyle": "line",
-            "fillOpacity": 40,
-            "stacking": {
-              "mode": "normal"
-            }
-          }
-        },
+        "defaults": { "unit": "currencyUSD", "custom": { "fillOpacity": 10, "showPoints": "never" } },
         "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "sum by (service_name, model)(sum_over_time({service_name=~\"$service\"} | event_name=`api_request` | unwrap cost_usd [$__interval]))",
+          "datasource": { "type": "loki", "uid": "loki" },
           "legendFormat": "{{service_name}} / {{model}}",
-          "queryType": "range"
+          "expr": "sum by (service_name, model)(sum_over_time({service_name=~\"$service\"} | event_name=`api_request` | cost_usd != `0` | unwrap cost_usd [$__interval]))"
         }
       ]
     },
     {
       "id": 5,
       "type": "timeseries",
-      "title": "OpenClaw/LiteLLM spend by model (1h rate)",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 4
-      },
+      "title": "Spend by model — LiteLLM proxy",
+      "description": "USD accrued per $__interval bucket, so the area under the curve equals the range spend on the tile above.",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": {
-        "defaults": {
-          "unit": "currencyUSD",
-          "custom": {
-            "drawStyle": "line",
-            "fillOpacity": 40,
-            "stacking": {
-              "mode": "normal"
-            }
-          }
-        },
+        "defaults": { "unit": "currencyUSD", "custom": { "fillOpacity": 10, "showPoints": "never" } },
         "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum by (model)(rate(litellm_spend_metric_total[1h]))*3600",
-          "legendFormat": "{{model}} $/h"
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "legendFormat": "{{model}}",
+          "expr": "sum by (model)(increase(litellm_spend_metric_total{model=~\"$model\"}[$__interval]))"
         }
       ]
     },
     {
       "id": 6,
       "type": "timeseries",
-      "title": "Tokens by type (selected services)",
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 12
-      },
+      "title": "Tokens by type — agent-reported",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "datasource": { "type": "loki", "uid": "loki" },
       "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "custom": {
-            "drawStyle": "line",
-            "fillOpacity": 40,
-            "stacking": {
-              "mode": "normal"
-            }
-          }
-        },
+        "defaults": { "unit": "short", "custom": { "fillOpacity": 10, "showPoints": "never" } },
         "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "sum by (service_name)(sum_over_time({service_name=~\"$service\"} | event_name=`api_request` | unwrap input_tokens [$__interval]))",
-          "legendFormat": "input",
-          "queryType": "range"
+          "datasource": { "type": "loki", "uid": "loki" },
+          "legendFormat": "{{service_name}} input",
+          "expr": "sum by (service_name)(sum_over_time({service_name=~\"$service\"} | event_name=`api_request` | unwrap input_tokens [$__interval]))"
         },
         {
           "refId": "B",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "sum by (service_name)(sum_over_time({service_name=~\"$service\"} | event_name=`api_request` | unwrap output_tokens [$__interval]))",
-          "legendFormat": "output",
-          "queryType": "range"
+          "datasource": { "type": "loki", "uid": "loki" },
+          "legendFormat": "{{service_name}} output",
+          "expr": "sum by (service_name)(sum_over_time({service_name=~\"$service\"} | event_name=`api_request` | unwrap output_tokens [$__interval]))"
         },
         {
           "refId": "C",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "sum by (service_name)(sum_over_time({service_name=~\"$service\"} | event_name=`api_request` | unwrap cache_read_tokens [$__interval]))",
-          "legendFormat": "cacheRead",
-          "queryType": "range"
+          "datasource": { "type": "loki", "uid": "loki" },
+          "legendFormat": "{{service_name}} cache-read",
+          "expr": "sum by (service_name)(sum_over_time({service_name=~\"$service\"} | event_name=`api_request` | unwrap cache_read_tokens [$__interval]))"
         }
       ]
     },
     {
       "id": 7,
       "type": "timeseries",
-      "title": "OpenClaw/LiteLLM tokens/s",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 12
-      },
+      "title": "LiteLLM proxy tokens/s",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "custom": {
-            "drawStyle": "line",
-            "fillOpacity": 40,
-            "stacking": {
-              "mode": "normal"
-            }
-          }
-        },
+        "defaults": { "unit": "short", "custom": { "fillOpacity": 10, "showPoints": "never" } },
         "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(rate(litellm_total_tokens_metric_total[5m]))",
-          "legendFormat": "total tok/s"
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "legendFormat": "total",
+          "expr": "sum(rate(litellm_total_tokens_metric_total{model=~\"$model\"}[$__rate_interval]))"
         },
         {
           "refId": "B",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(rate(litellm_input_cached_tokens_metric_total[10m]))",
-          "legendFormat": "cached read"
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "legendFormat": "cache-read",
+          "expr": "sum(rate(litellm_input_cached_tokens_metric_total{model=~\"$model\"}[$__rate_interval]))"
         }
       ]
     },
     {
       "id": 8,
       "type": "bargauge",
-      "title": "Cache-read tokens by model (selected services)",
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 20
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "displayMode": "gradient",
-        "orientation": "horizontal",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        }
-      },
+      "title": "Cache-read tokens by model — agent-reported",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "options": { "displayMode": "gradient", "reduceOptions": { "calcs": ["lastNotNull"] } },
       "targets": [
         {
           "refId": "A",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "sum by (service_name, model)(sum_over_time({service_name=~\"$service\"} | event_name=`api_request` | unwrap cache_read_tokens [$__range]))",
+          "datasource": { "type": "loki", "uid": "loki" },
           "queryType": "instant",
-          "legendFormat": "{{service_name}} / {{model}}"
+          "legendFormat": "{{service_name}} / {{model}}",
+          "expr": "sum by (service_name, model)(sum_over_time({service_name=~\"$service\"} | event_name=`api_request` | unwrap cache_read_tokens [$__range]))"
         }
       ]
     },
     {
       "id": 9,
       "type": "table",
-      "title": "OpenClaw/LiteLLM spend by model (24h)",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 20
-      },
+      "title": "LiteLLM proxy spend by model (range)",
+      "description": "Follows the dashboard time picker. $0 rows are local llama-swap models — correct, not missing.",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "currencyUSD", "decimals": 4 }, "overrides": [] },
       "targets": [
         {
           "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum by (model)(increase(litellm_spend_metric_total[24h]))",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "instant": true,
           "format": "table",
-          "instant": true
+          "expr": "sum by (model)(increase(litellm_spend_metric_total{model=~\"$model\"}[$__range]))"
         }
       ],
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      }
+      "transformations": [
+        { "id": "organize", "options": { "excludeByName": { "Time": true } } },
+        { "id": "sortBy", "options": { "sort": [{ "field": "Value", "desc": true }] } }
+      ]
     }
-  ],
-  "templating": {
-    "list": [
-      {
-        "name": "service",
-        "type": "query",
-        "datasource": {
-          "type": "loki",
-          "uid": "loki"
-        },
-        "query": "label_values({event_name=\"api_request\"}, service_name)",
-        "includeAll": true,
-        "multi": true,
-        "refresh": 2,
-        "current": {
-          "text": "All",
-          "value": "$__all"
-        }
-      },
-      {
-        "name": "model",
-        "type": "query",
-        "datasource": {
-          "type": "prometheus",
-          "uid": "prometheus"
-        },
-        "query": "label_values(litellm_model_info, model)",
-        "includeAll": true,
-        "multi": true,
-        "refresh": 2,
-        "current": {
-          "text": "All",
-          "value": "$__all"
-        }
-      }
-    ]
-  }
+  ]
 }

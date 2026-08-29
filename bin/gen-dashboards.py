@@ -129,7 +129,7 @@ def var_query(name, query, ds=PROM):
 
 def dashboard(title, uid, panels, tags, refresh="30s", templating=None):
     if templating is None:
-        templating = [var_query("model", "label_values(litellm_spend_metric_total, model)")]
+        templating = [var_query("model", "label_values(litellm_model_info, model)")]
     return {"uid": uid, "title": title, "tags": tags, "schemaVersion": 39, "version": 1,
             "editable": True, "refresh": refresh, "time": {"from": "now-6h", "to": "now"},
             "timezone": "browser", "panels": panels, "templating": {"list": templating}}
@@ -229,10 +229,10 @@ write(dashboard("Accelerators (NVIDIA + iGPU + NPU)", "accelerators", acc, ["inf
 _id = itertools.count(1)
 net = [
     stat("Targets up", 'sum(probe_success)', "short", 6, 4, 0, 0),
-    stat("Targets down", 'sum(probe_success==0)', "short", 6, 4, 6, 0,
+    stat("Targets down", 'sum(probe_success==0) or vector(0)', "short", 6, 4, 6, 0,
          thresholds=[{"color": "green", "value": None}, {"color": "red", "value": 1}]),
     stat("Internet RTT (1.1.1.1)", 'probe_duration_seconds{instance="1.1.1.1"}', "s", 6, 4, 12, 0),
-    stat("example.com latency", 'probe_duration_seconds{instance="https://example.com"}', "s", 6, 4, 18, 0),
+    stat("cws VM RTT (192.0.2.10)", 'probe_duration_seconds{instance="192.0.2.10"}', "s", 6, 4, 18, 0),
     ts("Probe latency", [('probe_duration_seconds', "{{instance}}")], "s", 24, 9, 0, 4),
     table("Probe status", 'probe_success', 12, 8, 0, 13),
     ts("HTTP status code", [('probe_http_status_code', "{{instance}}")], "short", 12, 8, 12, 13),

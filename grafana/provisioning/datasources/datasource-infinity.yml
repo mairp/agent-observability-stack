@@ -1,9 +1,12 @@
+# Re-enable Infinity datasource for QMD Vector Space dashboard (inline JSON)
 apiVersion: 1
 datasources:
-  - name: QMD-Infinity
-    type: yesoreyeram-infinity-datasource
+  - name: Infinity
     uid: qmd-infinity
+    type: yesoreyeram-infinity-datasource
     access: proxy
     isDefault: false
+    editable: false
     jsonData:
-      global_queries: []
+      allowedHosts:
+        - "*"

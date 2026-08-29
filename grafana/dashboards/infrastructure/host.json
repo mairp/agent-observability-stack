@@ -238,10 +238,11 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(pve_up{id=~\"qemu/.*|lxc/.*\"})",
+          "expr": "sum(pve_up{id=~\"qemu/.*|lxc/.*\"}) or vector(0)",
           "legendFormat": ""
         }
-      ]
+      ],
+      "description": "pve_up comes from hypervisor-exporter. The container was running and publishing :9221 but prometheus.yml had no scrape job for it, so this metric had zero samples and the panel always read No data. Scrape job `hypervisor` added 2026-08-27; it also needs INPUT to allow 172.18.0.0/16 -> tcp/8006 (pveproxy), see /usr/local/bin/setup-firewall.sh."
     },
     {
       "id": 5,
@@ -746,7 +747,8 @@
           "expr": "intel_gpu_memory_bytes{type=\"resident\"}/ignoring(type) node_memory_MemTotal_bytes*100",
           "legendFormat": ""
         }
-      ]
+      ],
+      "description": "Sourced from intel_gpu_present/intel_gpu_* (exporters/intel_gpu_textfile.py). No data here means intel_gpu_top produced no sample \u2014 check the iGPU tile on the Accelerators dashboard before treating it as a dashboard fault."
     },
     {
       "id": 14,
@@ -997,7 +999,8 @@
           "expr": "intel_npu_memory_bytes",
           "legendFormat": "NPU"
         }
-      ]
+      ],
+      "description": "Sourced from intel_gpu_present/intel_gpu_* (exporters/intel_gpu_textfile.py). No data here means intel_gpu_top produced no sample \u2014 check the iGPU tile on the Accelerators dashboard before treating it as a dashboard fault."
     },
     {
       "id": 18,
@@ -1175,7 +1178,7 @@
           "type": "prometheus",
           "uid": "prometheus"
         },
-        "query": "label_values(litellm_spend_metric_total, model)",
+        "query": "label_values(litellm_model_info, model)",
         "includeAll": true,
         "multi": true,
         "refresh": 2,

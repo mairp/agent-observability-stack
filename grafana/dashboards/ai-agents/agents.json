@@ -18,7 +18,7 @@
     {
       "id": 1,
       "type": "stat",
-      "title": "Spend (24h)",
+      "title": "Spend (range)",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -63,7 +63,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(increase(litellm_spend_metric_total[24h]))",
+          "expr": "sum(increase(litellm_spend_metric_total[$__range])) or vector(0)",
           "legendFormat": ""
         }
       ]
@@ -71,7 +71,7 @@
     {
       "id": 2,
       "type": "stat",
-      "title": "Tokens (24h)",
+      "title": "Tokens (range)",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -116,7 +116,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(increase(litellm_total_tokens_metric_total[24h]))",
+          "expr": "sum(increase(litellm_total_tokens_metric_total[$__range])) or vector(0)",
           "legendFormat": ""
         }
       ]
@@ -169,7 +169,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(increase(openclaw_model_call_total[1h]))",
+          "expr": "sum(increase(openclaw_model_call_total[1h])) or vector(0)",
           "legendFormat": ""
         }
       ]
@@ -352,7 +352,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(litellm_cached_tokens_metric_total[5m]))",
+          "expr": "sum(rate(litellm_input_cached_tokens_metric_total[5m]))",
           "legendFormat": "cached"
         },
         {
@@ -639,10 +639,11 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (error_category)(rate(openclaw_model_call_total{error_category!=\"none\"}[10m]))",
+          "expr": "sum by (error_category)(rate(openclaw_model_call_total{error_category!=\"none\"}[10m])) or vector(0)",
           "legendFormat": "{{error_category}}"
         }
-      ]
+      ],
+      "description": "Empty here means zero errors, which is the healthy case \u2014 the `or vector(0)` keeps the panel drawing a flat 0 line instead of reading \"No data\". Only `error_category=\"none\"` has ever been observed on this host."
     },
     {
       "id": 12,
@@ -776,6 +777,7 @@
         },
         "query": "label_values(litellm_model_info, model)",
         "includeAll": true,
+	        "allValue": ".*",
         "multi": true,
         "refresh": 2,
         "current": {

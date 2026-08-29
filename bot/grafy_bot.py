@@ -66,10 +66,10 @@ DASH = {
     "both": ("agents-composite", "agents-composite", "Agents — Claude Code vs pi"),
     "claude-vs-pi": ("agents-composite", "agents-composite", "Agents — Claude Code vs pi"),
     # Ralph autonomous loops (Loki-backed)
-    "ralph": ("ralph-loops", "ralph-loops", "Ralph Loops (Claude Code)"),
-    "ralph-loops": ("ralph-loops", "ralph-loops", "Ralph Loops (Claude Code)"),
-    "loops": ("ralph-loops", "ralph-loops", "Ralph Loops (Claude Code)"),
-    "loop": ("ralph-loops", "ralph-loops", "Ralph Loops (Claude Code)"),
+    "ralph": ("ralph-loops", "ralph-loops", "Ralph Loops (multi-harness)"),
+    "ralph-loops": ("ralph-loops", "ralph-loops", "Ralph Loops (multi-harness)"),
+    "loops": ("ralph-loops", "ralph-loops", "Ralph Loops (multi-harness)"),
+    "loop": ("ralph-loops", "ralph-loops", "Ralph Loops (multi-harness)"),
     # Local inference (llama.cpp on the RTX 3090)
     "inference": ("inference-llama", "inference-llama", "LLM Inference — llama.cpp + MTP (RTX 3090)"),
     "llama": ("inference-llama", "inference-llama", "LLM Inference — llama.cpp + MTP (RTX 3090)"),
@@ -170,10 +170,10 @@ SUMMARY = {
     "ralph-loops": [
         ("Runs 24h", 'sum(count_over_time({job="ralph", event="run_start"} [24h]))', num, "loki"),
         ("Iterations 24h", 'sum(count_over_time({job="ralph", event="iter_start"} [24h]))', num, "loki"),
-        ("Cost 24h", 'sum(sum_over_time({job="ralph", event="api_request"} | logfmt | unwrap cost_usd [24h]))', usd, "loki"),
-        ("Out tokens 24h", 'sum(sum_over_time({job="ralph", event="api_request"} | logfmt | unwrap output_tokens [24h]))', num, "loki"),
-        ("Tool calls 24h", 'sum(count_over_time({job="ralph", event="tool_use"} [24h]))', num, "loki"),
-        ("Errors 24h", 'sum(count_over_time({job="ralph", event="api_request"} | logfmt | is_error="true" [24h]))', num, "loki"),
+        ("Cost 24h", 'sum(increase(ralph_cost_usd_total[24h])) or vector(0)', usd),
+        ("Out tokens 24h", 'sum(increase(ralph_tokens_total{type="output"}[24h])) or vector(0)', num),
+        ("Tool calls 24h", 'sum(increase(ralph_tool_use_total[24h])) or vector(0)', num),
+        ("Errors 24h", 'sum(increase(ralph_errors_total[24h])) or vector(0)', num),
     ],
 }
 

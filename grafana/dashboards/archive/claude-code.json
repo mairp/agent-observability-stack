@@ -63,7 +63,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum(sum_over_time({service_name=\"claude-code\"} | event_name=`api_request` | unwrap cost_usd [$__range]))",
+          "expr": "sum(sum_over_time({service_name=\"claude-code\"} | event_name=`api_request` | cost_usd != `0` | unwrap cost_usd [$__range]))",
           "queryType": "instant"
         }
       ]
@@ -798,23 +798,7 @@
     }
   ],
   "templating": {
-    "list": [
-      {
-        "name": "model",
-        "type": "query",
-        "datasource": {
-          "type": "prometheus",
-          "uid": "prometheus"
-        },
-        "query": "label_values(litellm_spend_metric_total, model)",
-        "includeAll": true,
-        "multi": true,
-        "refresh": 2,
-        "current": {
-          "text": "All",
-          "value": "$__all"
-        }
-      }
-    ]
-  }
+    "list": []
+  },
+  "description": "Archived \u2014 superseded by AI & Agents / Agents (Composite), which runs the same panels scoped by service_name so pi and ralph appear alongside claude-code. Verified 2026-08-27: every query here still returns data. Kept for the claude-code-only view."
 }

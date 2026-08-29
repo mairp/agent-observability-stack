@@ -21,6 +21,13 @@ tmp="$(mktemp)"
     # Per-GPU: one CSV row per card. nounits -> util %, memory MiB, power W, clocks MHz.
     rows="$(nvidia-smi --query-gpu=index,name,utilization.gpu,memory.used,memory.free,memory.total,temperature.gpu,power.draw,power.limit,clocks.sm,clocks.mem \
               --format=csv,noheader,nounits 2>/dev/null)"
+    # nvidia-smi prints a human message on STDOUT ("No devices were found") and exits
+    # non-zero when the eGPU is powered off or wedged (Xid 79 fell-off-the-bus). That
+    # string is NOT a sample: without this filter $rows is non-empty and the collector
+    # publishes `nvidia_gpu_present 1` with zero metric lines — a false-healthy signal
+    # that hides the outage behind "No data" panels. Keep only rows that parse as the
+    # requested CSV (leading GPU index).
+    rows="$(printf '%s\n' "$rows" | grep -E '^[[:space:]]*[0-9]+,' || true)"
     if [ -z "$rows" ]; then
       echo "nvidia_gpu_present 0"
     else

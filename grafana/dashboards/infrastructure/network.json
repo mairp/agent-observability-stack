@@ -120,15 +120,16 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(probe_success==0)",
+          "expr": "sum(probe_success==0) or vector(0)",
           "legendFormat": ""
         }
-      ]
+      ],
+      "description": "`sum(probe_success==0)` returns an empty vector when nothing is down, which Grafana renders as \"No data\" \u2014 indistinguishable from a broken query. `or vector(0)` makes the healthy case read 0."
     },
     {
       "id": 3,
       "type": "stat",
-      "title": "Internet RTT (1.1.1.1)",
+      "title": "Internet RTT (1.1.1.1, ICMP)",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -173,15 +174,16 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "probe_duration_seconds{instance=\"1.1.1.1\"}",
+          "expr": "probe_duration_seconds{job=\"blackbox-icmp\", instance=\"1.1.1.1\"}",
           "legendFormat": ""
         }
-      ]
+      ],
+      "description": "ICMP probe. Was No data because prometheus/targets/blackbox-icmp.yml was an empty file \u2014 the blackbox-icmp job had zero targets. Targets restored 2026-08-27."
     },
     {
       "id": 4,
       "type": "stat",
-      "title": "example.com latency",
+      "title": "cws VM RTT (192.0.2.10, ICMP)",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -226,10 +228,11 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "probe_duration_seconds{instance=\"https://example.com\"}",
+          "expr": "probe_duration_seconds{job=\"blackbox-icmp\", instance=\"192.0.2.10\"}",
           "legendFormat": ""
         }
-      ]
+      ],
+      "description": "Replaces the former \"example.com latency\" panel: example.com has never been in blackbox-http.yml, so that query could never return data. This probes the cws/YANGSuite hypervisor guest instead, which is a real target on this host."
     },
     {
       "id": 5,
@@ -279,7 +282,7 @@
             "uid": "prometheus"
           },
           "expr": "probe_duration_seconds",
-          "legendFormat": "{{instance}}"
+          "legendFormat": "{{job}} {{instance}}"
         }
       ]
     },
@@ -306,7 +309,8 @@
           },
           "expr": "probe_success",
           "format": "table",
-          "instant": true
+          "instant": true,
+          "legendFormat": "{{job}} {{instance}}"
         }
       ],
       "fieldConfig": {
@@ -376,7 +380,7 @@
           "type": "prometheus",
           "uid": "prometheus"
         },
-        "query": "label_values(litellm_spend_metric_total, model)",
+        "query": "label_values(litellm_model_info, model)",
         "includeAll": true,
         "multi": true,
         "refresh": 2,

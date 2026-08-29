@@ -12,21 +12,15 @@
     {
       "id": 1,
       "type": "table",
-      "title": "Configured models (LiteLLM /v1/models)",
-      "datasource": {"type": "yesoreyeram-infinity-datasource", "uid": "litellm-infinity"},
+      "title": "Configured models (LiteLLM metrics)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
       "gridPos": {"h": 18, "w": 24, "x": 0, "y": 0},
       "targets": [
         {
           "refId": "A",
-          "type": "json",
-          "source": "url",
+          "expr": "litellm_model_info",
           "format": "table",
-          "url": "http://litellm:4000/v1/models",
-          "root_selector": "data",
-          "columns": [
-            {"selector": "id", "text": "Model", "type": "string"},
-            {"selector": "owned_by", "text": "Owner", "type": "string"}
-          ]
+          "instant": true
         }
       ],
       "options": {"showHeader": true}

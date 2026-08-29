@@ -22,14 +22,14 @@
       "type": "text",
       "title": "About this dashboard",
       "gridPos": {
-        "h": 4,
+        "h": 7,
         "w": 24,
         "x": 0,
         "y": 0
       },
       "options": {
         "mode": "markdown",
-        "content": "**Frontier-fading agent tree (12.1).** opus plans/verifies, the local qwen worker executes, and trust is earned per task-class. Every panel is the persistent Loki event stream (`job=\"agentops\"`, one event per dispatch/verdict/escalation) over the dashboard range \u2014 the **same** events that drive the kanban board. **Local** = `qwen*`; **Frontier** = `claude-*` / `gpt-*`. The goal of fading is the two numbers up top moving in opposite directions: local task share **up**, frontier tokens (cost proxy) **down**, without local-first pass-rate dropping below the promotion bar (0.85). GPU-degraded is split **by reason** so a silent CPU-fallback (H1, `reason=cpu-fallback`) reads distinctly from a device-health degrade (S3)."
+        "content": "**Frontier-fading agent tree (12.1).** opus plans/verifies, the local qwen worker executes, and trust is earned per task-class. Every panel is the persistent Loki event stream (`job=\"agentops\"`, one event per dispatch/verdict/escalation) over the dashboard range \u2014 the **same** events that drive the kanban board. **Local** = `qwen*`; **Frontier** = `claude-*` / `gpt-*`. The goal of fading is the two numbers up top moving in opposite directions: local task share **up**, frontier tokens (cost proxy) **down**, without local-first pass-rate dropping below the promotion bar (0.85). GPU-degraded is split **by reason** so a silent CPU-fallback (H1, `reason=cpu-fallback`) reads distinctly from a device-health degrade (S3).\n\n---\n\n**Empty is not broken (verified 2026-08-27).** Every query here targets `job=\"agentops\"`, written by `agent-pack/bin/agentops-ship.py` (`dispatch | escalation | verdict | adhoc | dispatch_start`). That vocabulary is correct and the shipper is installed \u2014 but no governed agent-pack run has executed inside Loki's 7-day retention (the only `agentops` line in the window is a `test_governed_fleet_probe` from 2026-08-26). So these panels read *No data* because the fleet has been idle on this path, **not** because the queries are wrong. Run a governed card and they populate. If they are still empty after a run, the shipper is not reaching Loki \u2014 check `agentops-ship.py --loki`."
       }
     },
     {
@@ -44,7 +44,7 @@
         "h": 4,
         "w": 6,
         "x": 0,
-        "y": 4
+        "y": 7
       },
       "fieldConfig": {
         "defaults": {
@@ -97,7 +97,7 @@
         "h": 4,
         "w": 6,
         "x": 6,
-        "y": 4
+        "y": 7
       },
       "fieldConfig": {
         "defaults": {
@@ -158,7 +158,7 @@
         "h": 4,
         "w": 6,
         "x": 12,
-        "y": 4
+        "y": 7
       },
       "fieldConfig": {
         "defaults": {
@@ -219,7 +219,7 @@
         "h": 4,
         "w": 6,
         "x": 18,
-        "y": 4
+        "y": 7
       },
       "fieldConfig": {
         "defaults": {
@@ -276,7 +276,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 8
+        "y": 11
       },
       "fieldConfig": {
         "defaults": {
@@ -311,7 +311,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum(sum_over_time({job=\"agentops\", event=\"verdict\", task=~\"$task\"} | logfmt | model=~`qwen.*` | unwrap tokens_out [$__interval]))",
+          "expr": "(sum(sum_over_time({job=\"agentops\", event=\"verdict\", task=~\"$task\"} | logfmt | model=~`qwen.*` | unwrap tokens_out [$__interval])) or sum(sum_over_time({job=\"agentops\", event=\"verdict\", task=~\"$task\"} | logfmt | model=~`qwen.*` | unwrap output_tokens [$__interval])))",
           "legendFormat": "local (qwen)",
           "queryType": "range"
         },
@@ -339,7 +339,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 8
+        "y": 11
       },
       "fieldConfig": {
         "defaults": {
@@ -402,7 +402,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 16
+        "y": 19
       },
       "fieldConfig": {
         "defaults": {
@@ -447,7 +447,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 16
+        "y": 19
       },
       "fieldConfig": {
         "defaults": {
@@ -492,7 +492,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 24
+        "y": 27
       },
       "fieldConfig": {
         "defaults": {
@@ -537,7 +537,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 24
+        "y": 27
       },
       "fieldConfig": {
         "defaults": {
@@ -582,7 +582,7 @@
         "h": 7,
         "w": 24,
         "x": 0,
-        "y": 32
+        "y": 35
       },
       "fieldConfig": {
         "defaults": {
@@ -634,7 +634,7 @@
         "h": 11,
         "w": 24,
         "x": 0,
-        "y": 39
+        "y": 42
       },
       "options": {
         "showTime": true,

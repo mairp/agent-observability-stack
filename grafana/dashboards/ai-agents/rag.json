@@ -371,7 +371,7 @@
           "type": "prometheus",
           "uid": "prometheus"
         },
-        "query": "label_values(litellm_spend_metric_total, model)",
+        "query": "label_values(litellm_model_info, model)",
         "includeAll": true,
         "multi": true,
         "refresh": 2,

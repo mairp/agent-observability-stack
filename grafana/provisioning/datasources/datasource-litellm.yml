@@ -1,27 +1,4 @@
+# Removed Infinity datasource; LiteLLM inventory now uses Prometheus metrics (litellm_model_info).
 apiVersion: 1
-datasources:
-  - name: LiteLLM-Models
-    type: yesoreyeram-infinity-datasource
-    uid: litellm-infinity
-    access: proxy
-    url: http://litellm:4000
-    isDefault: false
-    jsonData:
-      httpHeaderName1: Authorization
-      tlsSkipVerify: true
-      allowedHosts:
-        - litellm
-        - litellm:4000
-      allowUnsafeUrl: true
-      global_queries:
-        - refId: models
-          name: models
-          type: json
-          source: url
-          url: http://litellm:4000/v1/models
-          root_selector: data
-          columns:
-            - selector: id
-              text: model
-    secureJsonData:
-      httpHeaderValue1: ${LITELLM_BEARER:-}
+# Intentionally empty to avoid provisioning a non-existent plugin datasource.
+datasources: []

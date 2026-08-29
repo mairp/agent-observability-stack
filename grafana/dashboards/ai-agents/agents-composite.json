@@ -19,10 +19,7 @@
       "id": 1,
       "type": "stat",
       "title": "Cost (range)",
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
+      "datasource": { "type": "datasource", "uid": "-- Mixed --" },
       "gridPos": {
         "h": 4,
         "w": 6,
@@ -57,15 +54,9 @@
         }
       },
       "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "sum by (service_name)(sum_over_time({service_name=~\"$service\"} | event_name=`api_request` | unwrap cost_usd [$__range]))",
-          "queryType": "instant"
-        }
+        {"refId": "A", "hide": true, "datasource": {"type": "loki", "uid": "loki"}, "queryType": "instant", "expr": "sum(sum_over_time({service_name=~\"$service\"} | event_name=`api_request` | cost_usd != `0` | unwrap cost_usd [$__range])) or vector(0)"},
+        {"refId": "B", "hide": true, "datasource": {"type": "prometheus", "uid": "prometheus"}, "instant": true, "expr": "sum(increase(litellm_spend_metric_total{model=~\"$model\"}[$__range])) or vector(0)"},
+        {"refId": "C", "datasource": {"type": "__expr__", "uid": "__expr__"}, "type": "math", "expression": "$A + $B"}
       ]
     },
     {
@@ -116,7 +107,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum by (service_name)(sum_over_time({service_name=~\"$service\"} | event_name=`api_request` | unwrap output_tokens [$__range]))",
+          "expr": "sum(sum_over_time({service_name=~\"$service\"} | event_name=`api_request` | unwrap output_tokens [$__range])) or vector(0)",
           "queryType": "instant"
         }
       ]
@@ -169,7 +160,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum by (service_name)(sum_over_time({service_name=~\"$service\"} | event_name=`api_request` | unwrap cache_read_tokens [$__range]))",
+          "expr": "sum(sum_over_time({service_name=~\"$service\"} | event_name=`api_request` | unwrap cache_read_tokens [$__range])) or vector(0)",
           "queryType": "instant"
         }
       ]
@@ -222,7 +213,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum by (service_name)(count_over_time({service_name=~\"$service\"} | event_name=`api_request` [$__range]))",
+          "expr": "sum(count_over_time({service_name=~\"$service\"} | event_name=`api_request` [$__range])) or vector(0)",
           "queryType": "instant"
         }
       ]
@@ -274,7 +265,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum by (service_name, model)(sum_over_time({service_name=~\"$service\"} | event_name=`api_request` | unwrap cost_usd [$__interval]))",
+          "expr": "sum by (service_name, model)(sum_over_time({service_name=~\"$service\"} | event_name=`api_request` | cost_usd != `0` | unwrap cost_usd [$__interval]))",
           "legendFormat": "{{service_name}} / {{model}}",
           "queryType": "range"
         }
@@ -808,6 +799,7 @@
         },
         "query": "label_values(service_name)",
         "includeAll": true,
+        "allValue": ".+",
         "multi": true,
         "refresh": 2,
         "current": {
@@ -822,8 +814,9 @@
           "type": "prometheus",
           "uid": "prometheus"
         },
-        "query": "label_values(litellm_spend_metric_total, model)",
+        "query": "label_values(litellm_model_info, model)",
         "includeAll": true,
+        "allValue": ".*",
         "multi": true,
         "refresh": 2,
         "current": {

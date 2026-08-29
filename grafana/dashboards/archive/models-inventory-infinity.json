@@ -1,0 +1,11 @@
+{
+  "uid": "litellm-models-archive",
+  "title": "Models — LiteLLM Inventory (Infinity archived)",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "panels": [
+    {"type": "text", "id": 1, "gridPos": {"h": 6, "w": 24, "x": 0, "y": 0},
+     "options": {"mode": "markdown", "content": "This dashboard previously depended on the yesoreyeram-infinity-datasource plugin to call /v1/models directly. The plugin is removed to resolve a Grafana 11 SystemJS error. Use the active 'Models — LiteLLM Inventory' dashboard which reads Prometheus litellm_model_info instead."}}
+  ]
+}
