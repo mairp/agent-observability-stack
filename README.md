@@ -145,4 +145,4 @@ CI runs `validate` + a secret scan on every PR (`.github/workflows/ci.yml`).
 
 ## License
 
-MIT
+Apache-2.0 — see [LICENSE](LICENSE).

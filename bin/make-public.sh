@@ -60,24 +60,8 @@ media/frames/
 *.bak*
 EOF
 
-# LICENSE (MIT)
-cat > "$DST/LICENSE" <<'EOF'
-MIT License
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
-OTHER LIABILITY ARISING FROM THE USE OF THE SOFTWARE.
-EOF
+# LICENSE (Apache-2.0)
+if [ -f "$SRC/LICENSE" ]; then cp "$SRC/LICENSE" "$DST/LICENSE"; else curl -fsSL https://www.apache.org/licenses/LICENSE-2.0.txt -o "$DST/LICENSE"; fi
 
 echo "Sanitized tree at: $DST"
 echo "== running public secret scan =="
