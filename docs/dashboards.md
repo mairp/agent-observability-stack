@@ -14,7 +14,7 @@ Provisioned as code from `bin/gen-dashboards.py` into two Grafana folders.
 | Dashboard | Highlights |
 |-----------|-----------|
 | **Claude Code** | cost & tokens **by model**, tokens **by type** (input/output/**cacheRead/cacheCreation**), cache-read by model, request count & **p95 latency** per model, **subagents** (runs/tokens **by agent type** — Explore/Plan/…, and by model), and a **Loki logs panel** of per-request events. All totals are persistent — driven from Loki `api_request` events, not the ephemeral OTLP metrics. |
-| **LLM Cost & Consumption** | unified spend/tokens across **Claude Code + OpenClaw/LiteLLM**, by model/provider, cache savings, 24h totals. |
+| **LLM Cost & Consumption** | unified spend/tokens across **Claude Code + OpenClaw/LiteLLM**, by model/provider, cache savings, 24h totals. Bottom section **RTX 3090 open-weight models — what the GPU saved**: local tokens priced at a selectable reference (gpt-5 fallback or open-weight host median), GPU kWh × your tariff, net saving, local share, local failures that fell back to gpt-5, per-model table. Method and numbers in [local-model-savings.md](local-model-savings.md). |
 | **OpenClaw Agents** | model-call latency p50/p95, call outcomes/errors by category, run-duration, queue depth, LiteLLM cost/tokens/cache, **agent inventory**, Tempo **traces**. |
 | **RAG / Memory (QMD)** | docs/vectors/size per index, index freshness. |
 | **LLM Inference — llama.cpp + MTP** | local CUDA inference (RTX 3090): decode & prefill **tok/s** vs a no-MTP baseline line, **MTP tokens/decode** (speculative acceptance ≈ tokens accepted per decode; 1.0 = none), request queue (processing/deferred), token volume, and the GPU's VRAM. |

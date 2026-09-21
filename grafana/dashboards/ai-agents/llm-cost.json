@@ -1,12 +1,18 @@
 {
   "uid": "llm-cost",
   "title": "LLM Cost & Consumption (Unified)",
-  "tags": ["ai", "cost"],
+  "tags": [
+    "ai",
+    "cost"
+  ],
   "schemaVersion": 39,
-  "version": 3,
+  "version": 4,
   "editable": true,
   "refresh": "30s",
-  "time": { "from": "now-6h", "to": "now" },
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
   "timezone": "browser",
   "templating": {
     "list": [
@@ -14,24 +20,182 @@
         "name": "service",
         "label": "Agent service (Loki meter)",
         "type": "query",
-        "datasource": { "type": "loki", "uid": "loki" },
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
         "query": "label_values({service_name!=\"\"}, service_name)",
         "includeAll": true,
         "multi": true,
         "refresh": 2,
-        "current": { "text": "All", "value": "$__all" }
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
       },
       {
         "name": "model",
         "label": "Model (LiteLLM meter)",
         "type": "query",
-        "datasource": { "type": "prometheus", "uid": "prometheus" },
-        "query": "label_values(litellm_model_info, model)",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "query": "label_values(litellm_total_tokens_metric_total, model)",
         "includeAll": true,
         "allValue": ".*",
         "multi": true,
         "refresh": 2,
-        "current": { "text": "All", "value": "$__all" }
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "definition": "label_values(litellm_total_tokens_metric_total, model)",
+        "description": "Sourced from the token counters over the dashboard range (not the live inventory) so retired models with history stay selectable."
+      },
+      {
+        "name": "local_models",
+        "label": "Local (RTX 3090) model regex",
+        "type": "textbox",
+        "description": "Regex over the LiteLLM `model` label that marks a route as served by llama-swap on the RTX 3090. Retired aliases (qwen3-coder-30b-a3b, qwen3.6-27b, qwen3.8-27b-q4) still match so 30d history stays in.",
+        "query": "qwen.*|muse-.*|nemotron-.*|antares",
+        "current": {
+          "text": "qwen.*|muse-.*|nemotron-.*|antares",
+          "value": "qwen.*|muse-.*|nemotron-.*|antares"
+        },
+        "options": [
+          {
+            "text": "qwen.*|muse-.*|nemotron-.*|antares",
+            "value": "qwen.*|muse-.*|nemotron-.*|antares",
+            "selected": true
+          }
+        ],
+        "hide": 0
+      },
+      {
+        "name": "ref_in",
+        "label": "Ref. price — input $/MTok",
+        "description": "What one uncached input token would have cost had the call gone to the cloud. gpt-5 is the literal target: litellm config wires fallbacks from every local route to gpt-5. Open-weight host median = replacement cost of running the same GGUF elsewhere (OpenRouter, 2026-09-11).",
+        "type": "custom",
+        "multi": false,
+        "includeAll": false,
+        "query": "gpt-5 fallback $1.25 : 1.25, open-weight host median $0.31 : 0.31, gpt-5.6-sol $4.00 : 4, nemotron host $0.09 : 0.09",
+        "options": [
+          {
+            "text": "gpt-5 fallback $1.25",
+            "value": "1.25",
+            "selected": true
+          },
+          {
+            "text": "open-weight host median $0.31",
+            "value": "0.31",
+            "selected": false
+          },
+          {
+            "text": "gpt-5.6-sol $4.00",
+            "value": "4",
+            "selected": false
+          },
+          {
+            "text": "nemotron host $0.09",
+            "value": "0.09",
+            "selected": false
+          }
+        ],
+        "current": {
+          "text": "gpt-5 fallback $1.25",
+          "value": "1.25",
+          "selected": true
+        },
+        "hide": 0
+      },
+      {
+        "name": "ref_cached",
+        "label": "Ref. price — cached input $/MTok",
+        "description": "Price for a prompt-cache hit. gpt-5 bills cached input at 10% of list. Most open-weight hosts give no cache discount, so pick the same value as input for that basis.",
+        "type": "custom",
+        "multi": false,
+        "includeAll": false,
+        "query": "gpt-5 cached $0.125 : 0.125, no discount (host median) $0.31 : 0.31, gpt-5.6-sol cached $0.40 : 0.4",
+        "options": [
+          {
+            "text": "gpt-5 cached $0.125",
+            "value": "0.125",
+            "selected": true
+          },
+          {
+            "text": "no discount (host median) $0.31",
+            "value": "0.31",
+            "selected": false
+          },
+          {
+            "text": "gpt-5.6-sol cached $0.40",
+            "value": "0.4",
+            "selected": false
+          }
+        ],
+        "current": {
+          "text": "gpt-5 cached $0.125",
+          "value": "0.125",
+          "selected": true
+        },
+        "hide": 0
+      },
+      {
+        "name": "ref_out",
+        "label": "Ref. price — output $/MTok",
+        "description": "What one generated token would have cost in the cloud. Same bases as the input price.",
+        "type": "custom",
+        "multi": false,
+        "includeAll": false,
+        "query": "gpt-5 fallback $10.00 : 10, open-weight host median $2.65 : 2.65, gpt-5.6-sol $20.00 : 20, nemotron host $0.225 : 0.225",
+        "options": [
+          {
+            "text": "gpt-5 fallback $10.00",
+            "value": "10",
+            "selected": true
+          },
+          {
+            "text": "open-weight host median $2.65",
+            "value": "2.65",
+            "selected": false
+          },
+          {
+            "text": "gpt-5.6-sol $20.00",
+            "value": "20",
+            "selected": false
+          },
+          {
+            "text": "nemotron host $0.225",
+            "value": "0.225",
+            "selected": false
+          }
+        ],
+        "current": {
+          "text": "gpt-5 fallback $10.00",
+          "value": "10",
+          "selected": true
+        },
+        "hide": 0
+      },
+      {
+        "name": "kwh_price",
+        "label": "Electricity $/kWh",
+        "type": "textbox",
+        "description": "Your tariff. Only the RTX 3090's own draw (llamaswap_gpu_power_draw_watts) is metered — host, enclosure and PSU losses are not.",
+        "query": "0.25",
+        "current": {
+          "text": "0.25",
+          "value": "0.25"
+        },
+        "options": [
+          {
+            "text": "0.25",
+            "value": "0.25",
+            "selected": true
+          }
+        ],
+        "hide": 0
       }
     ]
   },
@@ -40,10 +204,15 @@
       "id": 20,
       "type": "text",
       "title": "Two meters, one bill — read this before trusting a number",
-      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 0 },
+      "gridPos": {
+        "h": 5,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
       "options": {
         "mode": "markdown",
-        "content": "**Agent meter (Loki, `$service`)** — each agent self-reports `cost_usd` on its `api_request` event. Only agents talking *straight to a vendor API* know their price: today that is **claude-code**. `pi` emits `cost_usd=0` for every call because its OpenAI-compatible provider returns no cost in `usage` — so it is **excluded from spend by design** (`| cost_usd != 0`) rather than shown as a misleading $0.00. Its tokens and requests are still counted below.\n\n**Proxy meter (Prometheus, `litellm_spend_metric_total`, `$model`)** — LiteLLM prices every call that crosses the proxy: `pi`, `bebop`, OpenClaw agents, Compass `gpt-5` / `gpt-5.6-sol`, and the local llama-swap models (which correctly price at $0). **This is where pi's real spend lives.**\n\nThe two meters are disjoint — claude-code does not cross the proxy — so *Total spend* is their sum. Prometheus retains 30d, Loki only 7d: ranges beyond 7d show proxy spend only."
+        "content": "**Agent meter (Loki, `$service`)** — each agent self-reports `cost_usd` on its `api_request` event. Only agents talking *straight to a vendor API* know their price: today that is **claude-code**. `pi` emits `cost_usd=0` for every call because its OpenAI-compatible provider returns no cost in `usage` — so it is **excluded from spend by design** (`| cost_usd != 0`) rather than shown as a misleading $0.00. Its tokens and requests are still counted below. Ralph loops, bebop and OpenClaw emit no `api_request` events, so they never appear on this meter.\n\n**Proxy meter (Prometheus, `litellm_spend_metric_total`, `$model`)** — LiteLLM prices every call that crosses the proxy: `pi`, `bebop`, OpenClaw agents, Compass `gpt-5` / `gpt-5.6-sol`. **This is where pi's real spend lives.** The RTX 3090 models (`$local_models`) also cross it but price at **$0**, so they never show up in a spend panel — that is why the section at the bottom values them separately as *avoided* cost.\n\n**GPU meter (Prometheus, `llamaswap_upstream_*`, since 2026-09-11)** — token counters read from the loaded llama-server itself. It is the only meter that sees callers hitting llama-swap directly, bypassing LiteLLM.\n\nThe agent and proxy meters are disjoint — claude-code does not cross the proxy — so *Total spend* is their sum. Prometheus retains 30d, Loki only 7d: ranges beyond 7d show proxy spend only."
       }
     },
     {
@@ -51,26 +220,51 @@
       "type": "stat",
       "title": "Spend (range) — agent-reported",
       "description": "Loki meter. Agents with no cost source (pi) are filtered out instead of rendering a false $0.00 — if pi ever starts reporting real cost it appears here automatically.",
-      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 4 },
-      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 5
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "currencyUSD",
           "decimals": 2,
-          "color": { "mode": "thresholds" },
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
         },
         "overrides": []
       },
       "options": {
         "colorMode": "value",
         "graphMode": "area",
-        "reduceOptions": { "calcs": ["lastNotNull"] }
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "loki", "uid": "loki" },
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
           "queryType": "instant",
           "expr": "sum by (service_name)(sum_over_time({service_name=~\"$service\"} | event_name=`api_request` | cost_usd != `0` | unwrap cost_usd [$__range]))"
         }
@@ -80,27 +274,52 @@
       "id": 3,
       "type": "stat",
       "title": "Spend (range) — LiteLLM proxy",
-      "description": "Prometheus meter. Covers pi, bebop and OpenClaw. Local llama-swap models price at $0, which is correct, not missing data.",
-      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 4 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Prometheus meter. Covers pi, bebop and OpenClaw. The RTX 3090 models cross this meter too but price at $0, so they contribute nothing here — see the local-models section below for what they saved.",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "currencyUSD",
           "decimals": 2,
-          "color": { "mode": "thresholds" },
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
         },
         "overrides": []
       },
       "options": {
         "colorMode": "value",
         "graphMode": "area",
-        "reduceOptions": { "calcs": ["lastNotNull"] }
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "instant": true,
           "expr": "sum(increase(litellm_spend_metric_total{model=~\"$model\"}[$__range])) or vector(0)"
         }
@@ -111,40 +330,71 @@
       "type": "stat",
       "title": "Total spend (range, both meters)",
       "description": "Agent-reported + LiteLLM proxy. The two are disjoint: claude-code bypasses the proxy, everything else crosses it.",
-      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 4 },
-      "datasource": { "type": "datasource", "uid": "-- Mixed --" },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 5
+      },
+      "datasource": {
+        "type": "datasource",
+        "uid": "-- Mixed --"
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "currencyUSD",
           "decimals": 2,
-          "color": { "mode": "thresholds" },
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
         },
         "overrides": []
       },
       "options": {
         "colorMode": "value",
         "graphMode": "none",
-        "reduceOptions": { "calcs": ["lastNotNull"] }
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
       },
       "targets": [
         {
           "refId": "A",
           "hide": true,
-          "datasource": { "type": "loki", "uid": "loki" },
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
           "queryType": "instant",
           "expr": "sum(sum_over_time({service_name=~\"$service\"} | event_name=`api_request` | cost_usd != `0` | unwrap cost_usd [$__range])) or vector(0)"
         },
         {
           "refId": "B",
           "hide": true,
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "instant": true,
           "expr": "sum(increase(litellm_spend_metric_total{model=~\"$model\"}[$__range])) or vector(0)"
         },
         {
           "refId": "C",
-          "datasource": { "type": "__expr__", "uid": "__expr__" },
+          "datasource": {
+            "type": "__expr__",
+            "uid": "__expr__"
+          },
           "type": "math",
           "expression": "$A + $B"
         }
@@ -155,25 +405,50 @@
       "type": "stat",
       "title": "Requests (range) by service",
       "description": "Valid for every agent including pi — request counting needs no pricing source.",
-      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 4 },
-      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 5
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "color": { "mode": "thresholds" },
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
         },
         "overrides": []
       },
       "options": {
         "colorMode": "value",
         "graphMode": "area",
-        "reduceOptions": { "calcs": ["lastNotNull"] }
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "loki", "uid": "loki" },
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
           "queryType": "instant",
           "expr": "sum by (service_name)(count_over_time({service_name=~\"$service\"} | event_name=`api_request` [$__range]))"
         }
@@ -183,16 +458,33 @@
       "id": 4,
       "type": "timeseries",
       "title": "Spend by model — agent-reported",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
-      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 9
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
       "fieldConfig": {
-        "defaults": { "unit": "currencyUSD", "custom": { "fillOpacity": 10, "showPoints": "never" } },
+        "defaults": {
+          "unit": "currencyUSD",
+          "custom": {
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
         "overrides": []
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "loki", "uid": "loki" },
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
           "legendFormat": "{{service_name}} / {{model}}",
           "expr": "sum by (service_name, model)(sum_over_time({service_name=~\"$service\"} | event_name=`api_request` | cost_usd != `0` | unwrap cost_usd [$__interval]))"
         }
@@ -202,17 +494,34 @@
       "id": 5,
       "type": "timeseries",
       "title": "Spend by model — LiteLLM proxy",
-      "description": "USD accrued per $__interval bucket, so the area under the curve equals the range spend on the tile above.",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "LiteLLM-priced spend. Local models are absent by construction ($0 series are dropped); they are valued in the section below.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 9
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
-        "defaults": { "unit": "currencyUSD", "custom": { "fillOpacity": 10, "showPoints": "never" } },
+        "defaults": {
+          "unit": "currencyUSD",
+          "custom": {
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
         "overrides": []
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "legendFormat": "{{model}}",
           "expr": "sum by (model)(increase(litellm_spend_metric_total{model=~\"$model\"}[$__interval]))"
         }
@@ -222,28 +531,51 @@
       "id": 6,
       "type": "timeseries",
       "title": "Tokens by type — agent-reported",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
-      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 17
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
       "fieldConfig": {
-        "defaults": { "unit": "short", "custom": { "fillOpacity": 10, "showPoints": "never" } },
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
         "overrides": []
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "loki", "uid": "loki" },
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
           "legendFormat": "{{service_name}} input",
           "expr": "sum by (service_name)(sum_over_time({service_name=~\"$service\"} | event_name=`api_request` | unwrap input_tokens [$__interval]))"
         },
         {
           "refId": "B",
-          "datasource": { "type": "loki", "uid": "loki" },
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
           "legendFormat": "{{service_name}} output",
           "expr": "sum by (service_name)(sum_over_time({service_name=~\"$service\"} | event_name=`api_request` | unwrap output_tokens [$__interval]))"
         },
         {
           "refId": "C",
-          "datasource": { "type": "loki", "uid": "loki" },
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
           "legendFormat": "{{service_name}} cache-read",
           "expr": "sum by (service_name)(sum_over_time({service_name=~\"$service\"} | event_name=`api_request` | unwrap cache_read_tokens [$__interval]))"
         }
@@ -252,40 +584,103 @@
     {
       "id": 7,
       "type": "timeseries",
-      "title": "LiteLLM proxy tokens/s",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "title": "LiteLLM proxy tokens/s by model",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 17
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
-        "defaults": { "unit": "short", "custom": { "fillOpacity": 10, "showPoints": "never" } },
-        "overrides": []
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "cached (all models)"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              }
+            ]
+          }
+        ]
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "legendFormat": "total",
-          "expr": "sum(rate(litellm_total_tokens_metric_total{model=~\"$model\"}[$__rate_interval]))"
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (model)(rate(litellm_total_tokens_metric_total{model=~\"$model\"}[$__rate_interval]))",
+          "legendFormat": "{{model}}"
         },
         {
           "refId": "B",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "legendFormat": "cache-read",
-          "expr": "sum(rate(litellm_input_cached_tokens_metric_total{model=~\"$model\"}[$__rate_interval]))"
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(litellm_input_cached_tokens_metric_total{model=~\"$model\"}[$__rate_interval]))",
+          "legendFormat": "cached (all models)"
         }
-      ]
+      ],
+      "description": "Per-model so the RTX 3090 routes are visible next to the cloud ones. Cached-input tokens shown as one dashed total."
     },
     {
       "id": 8,
       "type": "bargauge",
       "title": "Cache-read tokens by model — agent-reported",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
-      "datasource": { "type": "loki", "uid": "loki" },
-      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
-      "options": { "displayMode": "gradient", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 25
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "loki", "uid": "loki" },
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
           "queryType": "instant",
           "legendFormat": "{{service_name}} / {{model}}",
           "expr": "sum by (service_name, model)(sum_over_time({service_name=~\"$service\"} | event_name=`api_request` | unwrap cache_read_tokens [$__range]))"
@@ -297,21 +692,943 @@
       "type": "table",
       "title": "LiteLLM proxy spend by model (range)",
       "description": "Follows the dashboard time picker. $0 rows are local llama-swap models — correct, not missing.",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "currencyUSD", "decimals": 4 }, "overrides": [] },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 25
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 4
+        },
+        "overrides": []
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "instant": true,
           "format": "table",
           "expr": "sum by (model)(increase(litellm_spend_metric_total{model=~\"$model\"}[$__range]))"
         }
       ],
       "transformations": [
-        { "id": "organize", "options": { "excludeByName": { "Time": true } } },
-        { "id": "sortBy", "options": { "sort": [{ "field": "Value", "desc": true }] } }
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "Value",
+                "desc": true
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": 30,
+      "type": "row",
+      "title": "RTX 3090 open-weight models — what the GPU saved",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 33,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 31,
+      "type": "text",
+      "title": "How to read this section",
+      "gridPos": {
+        "x": 0,
+        "y": 34,
+        "w": 24,
+        "h": 6
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "Local models cost **$0 on the LiteLLM meter**, so a spend panel can never show what they are worth. This section prices their tokens at a **reference cloud price you choose** (variables above): the default is **gpt-5**, because `litellm/config.yaml` wires `fallbacks` and `context_window_fallbacks` from every local route to gpt-5 — each successful local token is literally a gpt-5 token not bought. Switch to *open-weight host median* for the conservative \"what would DeepInfra/OpenRouter charge for the same GGUF\" floor.\n\n**Two token meters.** *Proxy* = LiteLLM counters (`$local_models`), 30d history, but only calls that crossed LiteLLM, with cached-input tokens priced at the cache rate. *llama-server* = counters read from the loaded model itself (`llamaswap_upstream_*`, since 2026-09-11): sees **every** caller including bebop/pi/OpenClaw hitting llama-swap directly, and its prompt count already excludes cache hits. Where the two disagree, the difference is direct traffic the proxy never saw.\n\n**Net** subtracts only the RTX 3090's metered draw × `$kwh_price`. Hardware amortisation and host power are not included. A high *failures → gpt-5 fallback* number means local calls errored and the cost moved to the cloud — that is spend, not saving."
+      }
+    },
+    {
+      "id": 32,
+      "type": "stat",
+      "title": "Avoided cloud cost — proxy meter (range)",
+      "description": "Local tokens that crossed LiteLLM, valued at the reference prices. Uncached input × $ref_in + cached input × $ref_cached + output × $ref_out.",
+      "gridPos": {
+        "x": 0,
+        "y": 40,
+        "w": 6,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 2,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": true,
+          "expr": "(( (sum(increase(litellm_input_tokens_metric_total{model=~\"$local_models\"}[$__range])) or vector(0)) - (sum(increase(litellm_input_cached_tokens_metric_total{model=~\"$local_models\"}[$__range])) or vector(0)) ) * $ref_in / 1e6 + (sum(increase(litellm_input_cached_tokens_metric_total{model=~\"$local_models\"}[$__range])) or vector(0)) * $ref_cached / 1e6 + (sum(increase(litellm_output_tokens_metric_total{model=~\"$local_models\"}[$__range])) or vector(0)) * $ref_out / 1e6) or vector(0)"
+        }
+      ]
+    },
+    {
+      "id": 33,
+      "type": "stat",
+      "title": "Avoided cloud cost — llama-server meter (range)",
+      "description": "All callers, read from the loaded llama-server. Prompt tokens × $ref_in + generated × $ref_out. Data starts 2026-09-11.",
+      "gridPos": {
+        "x": 6,
+        "y": 40,
+        "w": 6,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 2,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": true,
+          "expr": "(sum(increase(llamaswap_upstream_prompt_tokens_total[$__range])) * $ref_in / 1e6 + sum(increase(llamaswap_upstream_tokens_predicted_total[$__range])) * $ref_out / 1e6) or vector(0)"
+        }
+      ]
+    },
+    {
+      "id": 34,
+      "type": "stat",
+      "title": "RTX 3090 electricity (range)",
+      "description": "RTX 3090 board draw integrated over the range (15s scrape samples; periods with the card powered off count as zero) × $kwh_price. Includes idle draw while a model sits parked. Enclosure PSU losses and host power are not metered.",
+      "gridPos": {
+        "x": 12,
+        "y": 40,
+        "w": 6,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 2,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "orange",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": true,
+          "expr": "((sum(sum_over_time(llamaswap_gpu_power_draw_watts[$__range])) or vector(0)) * 15 / 3600 / 1000) * $kwh_price"
+        }
+      ]
+    },
+    {
+      "id": 35,
+      "type": "stat",
+      "title": "Net saving (range)",
+      "description": "Larger of the two avoided-cost meters minus RTX 3090 electricity over the range. Negative = the card burned more than it served.",
+      "gridPos": {
+        "x": 18,
+        "y": 40,
+        "w": 6,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 2,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": true,
+          "expr": "max(label_replace((( (sum(increase(litellm_input_tokens_metric_total{model=~\"$local_models\"}[$__range])) or vector(0)) - (sum(increase(litellm_input_cached_tokens_metric_total{model=~\"$local_models\"}[$__range])) or vector(0)) ) * $ref_in / 1e6 + (sum(increase(litellm_input_cached_tokens_metric_total{model=~\"$local_models\"}[$__range])) or vector(0)) * $ref_cached / 1e6 + (sum(increase(litellm_output_tokens_metric_total{model=~\"$local_models\"}[$__range])) or vector(0)) * $ref_out / 1e6) or vector(0), \"meter\", \"proxy\", \"\", \"\") or label_replace((sum(increase(llamaswap_upstream_prompt_tokens_total[$__range])) * $ref_in / 1e6 + sum(increase(llamaswap_upstream_tokens_predicted_total[$__range])) * $ref_out / 1e6) or vector(0), \"meter\", \"llama-server\", \"\", \"\")) - (((sum(sum_over_time(llamaswap_gpu_power_draw_watts[$__range])) or vector(0)) * 15 / 3600 / 1000) * $kwh_price)"
+        }
+      ]
+    },
+    {
+      "id": 36,
+      "type": "stat",
+      "title": "Local tokens (range)",
+      "description": "Proxy = LiteLLM total tokens for $local_models. llama-server = prompt + generated at the model. Requests = LiteLLM deployment requests to llama-swap.",
+      "gridPos": {
+        "x": 0,
+        "y": 44,
+        "w": 6,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": true,
+          "expr": "(sum(increase(litellm_total_tokens_metric_total{model=~\"$local_models\"}[$__range])) or vector(0)) or vector(0)",
+          "legendFormat": "proxy"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": true,
+          "expr": "(sum(increase(llamaswap_upstream_prompt_tokens_total[$__range])) + sum(increase(llamaswap_upstream_tokens_predicted_total[$__range]))) or vector(0)",
+          "legendFormat": "llama-server"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": true,
+          "expr": "sum(increase(litellm_deployment_total_requests_total{api_base=\"http://llama-swap:8080/v1\"}[$__range])) or vector(0)",
+          "legendFormat": "requests (proxy)"
+        }
+      ]
+    },
+    {
+      "id": 37,
+      "type": "stat",
+      "title": "Local share of proxy tokens (range)",
+      "description": "Share of all LiteLLM tokens that went to the RTX 3090 instead of a paid provider.",
+      "gridPos": {
+        "x": 6,
+        "y": 44,
+        "w": 4,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 1,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": true,
+          "expr": "((sum(increase(litellm_total_tokens_metric_total{model=~\"$local_models\"}[$__range])) or vector(0)) / sum(increase(litellm_total_tokens_metric_total[$__range]))) or vector(0)"
+        }
+      ]
+    },
+    {
+      "id": 38,
+      "type": "stat",
+      "title": "Local failures → gpt-5 fallback (range)",
+      "description": "LiteLLM deployment failures on the llama-swap route. Each one was retried on the cloud fallback and shows up as real spend above.",
+      "gridPos": {
+        "x": 10,
+        "y": 44,
+        "w": 4,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": true,
+          "expr": "sum(increase(litellm_deployment_failure_responses_total{api_base=\"http://llama-swap:8080/v1\"}[$__range])) or vector(0)"
+        }
+      ]
+    },
+    {
+      "id": 39,
+      "type": "stat",
+      "title": "GPU energy (range)",
+      "description": "kWh drawn by the RTX 3090 over the range. Scrape interval 15s is baked into the formula; keep in sync with prometheus.yml.",
+      "gridPos": {
+        "x": 14,
+        "y": 44,
+        "w": 5,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kwatth",
+          "decimals": 2,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "orange",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": true,
+          "expr": "(sum(sum_over_time(llamaswap_gpu_power_draw_watts[$__range])) or vector(0)) * 15 / 3600 / 1000",
+          "legendFormat": "kWh"
+        }
+      ]
+    },
+    {
+      "id": 40,
+      "type": "stat",
+      "title": "Model resident (range)",
+      "description": "Fraction of the range during which llama-swap had a model loaded in VRAM. Low residency with high energy = idle burn.",
+      "gridPos": {
+        "x": 19,
+        "y": 44,
+        "w": 5,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "orange",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": true,
+          "expr": "(count_over_time((max(llamaswap_model_loaded) == 1)[$__range:15s]) or vector(0)) * 15 / $__range_s"
+        }
+      ]
+    },
+    {
+      "id": 41,
+      "type": "timeseries",
+      "title": "Avoided cloud cost by local model ($/h) — proxy meter",
+      "description": "Rate of avoided cost at the reference prices, per local model. Flat zero = no local traffic through LiteLLM in that window.",
+      "gridPos": {
+        "x": 0,
+        "y": 48,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 15,
+            "stacking": {
+              "mode": "normal"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "{{model}}",
+          "expr": "( (sum by (model)(rate(litellm_input_tokens_metric_total{model=~\"$local_models\"}[$__rate_interval])) - sum by (model)(rate(litellm_input_cached_tokens_metric_total{model=~\"$local_models\"}[$__rate_interval]))) * $ref_in + sum by (model)(rate(litellm_input_cached_tokens_metric_total{model=~\"$local_models\"}[$__rate_interval])) * $ref_cached + sum by (model)(rate(litellm_output_tokens_metric_total{model=~\"$local_models\"}[$__rate_interval])) * $ref_out ) * 3600 / 1e6"
+        }
+      ]
+    },
+    {
+      "id": 42,
+      "type": "timeseries",
+      "title": "llama-server tokens/s (all callers) vs GPU power",
+      "description": "Prompt and generated tokens per second read from the loaded model, against the card's draw. Tokens with no power spike is impossible; power with no tokens is idle burn or a load in progress.",
+      "gridPos": {
+        "x": 12,
+        "y": 48,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "GPU watts"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "watt"
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "{{model}} prompt",
+          "expr": "sum by (model)(rate(llamaswap_upstream_prompt_tokens_total[$__rate_interval]))"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "{{model}} generated",
+          "expr": "sum by (model)(rate(llamaswap_upstream_tokens_predicted_total[$__rate_interval]))"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "GPU watts",
+          "expr": "max(llamaswap_gpu_power_draw_watts)"
+        }
+      ]
+    },
+    {
+      "id": 43,
+      "type": "table",
+      "title": "Local models (range) — proxy meter",
+      "description": "Per-model view of what crossed LiteLLM. 'avoided' uses the reference prices. Retired aliases keep appearing while Prometheus holds their history (30d).",
+      "gridPos": {
+        "x": 0,
+        "y": 56,
+        "w": 24,
+        "h": 10
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "avoided"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyUSD"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "failures"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "litellm_model_name"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "model"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "avoided",
+            "desc": true
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "requests",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": true,
+          "format": "table",
+          "expr": "sum by (litellm_model_name)(increase(litellm_deployment_total_requests_total{api_base=\"http://llama-swap:8080/v1\"}[$__range]))"
+        },
+        {
+          "refId": "failures",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": true,
+          "format": "table",
+          "expr": "sum by (litellm_model_name)(increase(litellm_deployment_failure_responses_total{api_base=\"http://llama-swap:8080/v1\"}[$__range]))"
+        },
+        {
+          "refId": "input",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": true,
+          "format": "table",
+          "expr": "label_replace(sum by (model)(increase(litellm_input_tokens_metric_total{model=~\"$local_models\"}[$__range])), \"litellm_model_name\", \"$1\", \"model\", \"(.*)\")"
+        },
+        {
+          "refId": "cached",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": true,
+          "format": "table",
+          "expr": "label_replace(sum by (model)(increase(litellm_input_cached_tokens_metric_total{model=~\"$local_models\"}[$__range])), \"litellm_model_name\", \"$1\", \"model\", \"(.*)\")"
+        },
+        {
+          "refId": "output",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": true,
+          "format": "table",
+          "expr": "label_replace(sum by (model)(increase(litellm_output_tokens_metric_total{model=~\"$local_models\"}[$__range])), \"litellm_model_name\", \"$1\", \"model\", \"(.*)\")"
+        },
+        {
+          "refId": "avoided",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": true,
+          "format": "table",
+          "expr": "label_replace(( (sum by (model)(increase(litellm_input_tokens_metric_total{model=~\"$local_models\"}[$__range])) - sum by (model)(increase(litellm_input_cached_tokens_metric_total{model=~\"$local_models\"}[$__range]))) * $ref_in + sum by (model)(increase(litellm_input_cached_tokens_metric_total{model=~\"$local_models\"}[$__range])) * $ref_cached + sum by (model)(increase(litellm_output_tokens_metric_total{model=~\"$local_models\"}[$__range])) * $ref_out ) / 1e6, \"litellm_model_name\", \"$1\", \"model\", \"(.*)\")"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "joinByField",
+          "options": {
+            "byField": "litellm_model_name",
+            "mode": "outer"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Time 1": true,
+              "Time 2": true,
+              "Time 3": true,
+              "Time 4": true,
+              "Time 5": true,
+              "Time 6": true,
+              "model": true,
+              "model 1": true,
+              "model 2": true,
+              "model 3": true,
+              "model 4": true
+            },
+            "renameByName": {
+              "Value #requests": "requests",
+              "Value #failures": "failures",
+              "Value #input": "input tokens",
+              "Value #cached": "cached input",
+              "Value #output": "output tokens",
+              "Value #avoided": "avoided"
+            }
+          }
+        }
       ]
     }
   ]
