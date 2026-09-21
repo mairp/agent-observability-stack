@@ -25,9 +25,30 @@ datasources:
         datasourceUid: prometheus
       nodeGraph:
         enabled: true
+      search:
+        hide: false
+      # Span -> its log lines. OTLP logs keep trace_id/span_id as Loki structured
+      # metadata (specstride/ralph shippers set them on every record).
+      tracesToLogsV2:
+        datasourceUid: loki
+        spanStartTimeShift: "-5m"
+        spanEndTimeShift: "5m"
+        filterByTraceID: false
+        filterBySpanID: false
+        customQuery: true
+        query: '{service_name=~".+"} | trace_id="$${__trace.traceId}"'
 
   - name: Loki
     type: loki
     uid: loki
     access: proxy
     url: http://loki:3100
+    jsonData:
+      # Log line -> trace: OTLP-ingested records carry trace_id structured metadata.
+      derivedFields:
+        - name: trace_id
+          matcherType: label
+          matcherRegex: trace_id
+          url: '$${__value.raw}'
+          datasourceUid: tempo
+          urlDisplayLabel: Open trace

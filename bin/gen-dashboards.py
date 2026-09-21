@@ -52,6 +52,16 @@ def table(title, expr, w=12, h=8, x=0, y=0):
     }
 
 
+def tql(title, query, w=24, h=10, x=0, y=0, table_type="traces", limit=30):
+    """Tempo TraceQL search rendered as a table (tableType: traces | spans)."""
+    return {
+        "id": next(_id), "type": "table", "title": title, "datasource": TEMPO,
+        "gridPos": {"h": h, "w": w, "x": x, "y": y},
+        "targets": [{"refId": "A", "datasource": TEMPO, "queryType": "traceql",
+                     "query": query, "limit": limit, "spss": 50, "tableType": table_type}],
+    }
+
+
 def traces(title, w=24, h=10, x=0, y=0):
     return {
         "id": next(_id), "type": "table", "title": title, "datasource": TEMPO,
@@ -425,6 +435,44 @@ ralph = [
 ]
 write(dashboard("Ralph Loops (Claude Code)", "ralph-loops", ralph, ["ai", "claude-code", "ralph"],
                 templating=[var_query("task", 'label_values({job="ralph"}, task)', ds=LOKI)]), "ai-agents")
+
+# ---------------- SpecStride runs & traces ----------------
+# Spans come from specstride's lib/ralph_otel_spans.py (OTLP -> collector -> Tempo),
+# resource service.name="specstride": one trace per run, nested
+# run > phase > attempt > iter > tool, plus verification / critic scopes. Scope spans
+# land when the scope CLOSES; tool/agent point spans land live (per iteration flush)
+# and show "root span not yet received" until their run finishes. The OTLP log copy
+# (Loki service_name="ralph") carries trace_id/span_id structured metadata, so every
+# log line links to its span (Loki derived field) and every span to its logs.
+_id = itertools.count(1)
+SS = '{service_name="ralph", task=~"$task"}'
+SSR = 'resource.service.name="specstride" && resource.task=~"$task"'
+SNOTE = (
+    "**SpecStride** runs as traces: one trace per run (`run > phase > attempt > iter > tool`, "
+    "plus `verification` and `critic` scopes). Scope spans appear when the scope **closes**; "
+    "tool calls appear live, so an in-flight run shows *root span not yet received* until it "
+    "ends. Click a trace ID to open the waterfall; each span links to its log lines in Loki."
+)
+spec = [
+    text("About this dashboard", SNOTE, 24, 3, 0, 0),
+    lstat("Runs started", f'sum(count_over_time({SS} | event="run_start" [$__range]))', "short", 4, 4, 0, 3),
+    lstat("Phases approved", f'sum(count_over_time({SS} | event="verdict" | result="APPROVED" [$__range]))', "short", 4, 4, 4, 3),
+    lstat("Rejections", f'sum(count_over_time({SS} | event="reject" [$__range]))', "short", 4, 4, 8, 3,
+          thresholds=[{"color": "green", "value": None}, {"color": "orange", "value": 1}, {"color": "red", "value": 3}]),
+    lstat("Iterations", f'sum(count_over_time({SS} | event="iter_start" [$__range]))', "short", 4, 4, 12, 3),
+    lstat("Tool calls", f'sum(count_over_time({SS} | event=~"agent_tool|tool_use" [$__range]))', "short", 4, 4, 16, 3),
+    stat("Agent cost (range)", 'sum(increase(ralph_cost_usd_total[$__range]))', "currencyUSD", 4, 4, 20, 3),
+    tql("Runs (traces) — click a trace ID for the waterfall", "{" + SSR + "}", 24, 10, 0, 7),
+    tql("Phases, attempts, verification & critic gates",
+        "{" + SSR + ' && span.specstride.scope=~"phase|attempt|verification|critic"}', 24, 10, 0, 17, table_type="spans", limit=50),
+    tql("Failed / rejected spans", "{" + SSR + " && status=error}", 12, 9, 0, 27, table_type="spans", limit=50),
+    lts("Tool calls by tool", [(f'sum by (tool)(count_over_time({SS} | event=~"agent_tool|tool_use" [$__interval]))', "{{tool}}")],
+        "short", 12, 9, 12, 27, stack=True),
+    logs("SpecStride events (click trace_id in log details to open the span)",
+         SS + ' | event!="telemetry_delivery"', 24, 11, 0, 36),
+]
+write(dashboard("SpecStride Runs & Traces", "specstride-traces", spec, ["ai", "specstride", "traces", "ralph"], refresh="30s",
+                templating=[dict(var_query("task", 'label_values({service_name="ralph"}, task)', ds=LOKI), allValue=".*")]), "ai-agents")
 
 # ---------------- Agent Mix (12.1 frontier-fading tree) ----------------
 # The fading dashboard. ONE event stream (job="agentops", from agent-pack `agentops emit`) feeds
