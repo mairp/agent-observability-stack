@@ -13,6 +13,7 @@ tar -C "$SRC" \
   --exclude='docker-compose.override.yml' --exclude='onboard/registry.json' \
   --exclude='alertmanager/alertmanager.yml' --exclude='media/frames' \
   --exclude='*.lock' --exclude='prometheus/secrets/*' --exclude='*.bak*' \
+  --exclude='.ralph-runner' --exclude='prometheus/scrape.d/*.yml' \
   -cf - . | tar -C "$DST" -xf -
 
 # Drop the virtualization host/virtualization-host scrape job from the public prometheus.yml.

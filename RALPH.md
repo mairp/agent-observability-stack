@@ -42,11 +42,11 @@ guardrails:
 
 # Task: composite Grafana dashboard + grafy Telegram delivery (roadmap 8.1, section B/C)
 
-**Your shell cwd is `/root` (NOT the repo).** ALL files you create/edit live in the repo
+**Your shell cwd is your home directory `~` (NOT the repo).** ALL files you create/edit live in the repo
 `~/agent-observability-stack/` — always use ABSOLUTE paths (e.g.
 `~/agent-observability-stack/grafana/dashboards/ai-agents/agents-composite.json`,
 `~/agent-observability-stack/tools/…`, `~/agent-observability-stack/bot/…`). A
-repo-relative path like `grafana/…` will wrongly resolve under `/root` and the acceptance gate
+repo-relative path like `grafana/…` will wrongly resolve under `~` and the acceptance gate
 will not see your work. Read
 `~/roadmap/8.1_grafana-composite-claude-pi-roadmap.md` — Deliverables 2, 6, 7 and Success
 criteria B(7,8), C(9,10).

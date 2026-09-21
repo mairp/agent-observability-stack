@@ -242,7 +242,7 @@ net = [
     stat("Targets down", 'sum(probe_success==0) or vector(0)', "short", 6, 4, 6, 0,
          thresholds=[{"color": "green", "value": None}, {"color": "red", "value": 1}]),
     stat("Internet RTT (1.1.1.1)", 'probe_duration_seconds{instance="1.1.1.1"}', "s", 6, 4, 12, 0),
-    stat("cws VM RTT (192.0.2.10)", 'probe_duration_seconds{instance="192.0.2.10"}', "s", 6, 4, 18, 0),
+    stat("LAN target RTT", 'max(probe_duration_seconds{job="blackbox-icmp", scope="lan"})', "s", 6, 4, 18, 0),
     ts("Probe latency", [('probe_duration_seconds', "{{instance}}")], "s", 24, 9, 0, 4),
     table("Probe status", 'probe_success', 12, 8, 0, 13),
     ts("HTTP status code", [('probe_http_status_code', "{{instance}}")], "short", 12, 8, 12, 13),

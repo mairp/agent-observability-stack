@@ -183,7 +183,7 @@
     {
       "id": 4,
       "type": "stat",
-      "title": "cws VM RTT (192.0.2.10, ICMP)",
+      "title": "LAN target RTT (ICMP)",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -228,11 +228,11 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "probe_duration_seconds{job=\"blackbox-icmp\", instance=\"192.0.2.10\"}",
+          "expr": "max(probe_duration_seconds{job=\"blackbox-icmp\", scope=\"lan\"})",
           "legendFormat": ""
         }
       ],
-      "description": "Replaces the former \"example.com latency\" panel: example.com has never been in blackbox-http.yml, so that query could never return data. This probes the cws/YANGSuite hypervisor guest instead, which is a real target on this host."
+      "description": "Replaces the former \"example.com latency\" panel: example.com has never been in blackbox-http.yml, so that query could never return data. This shows the slowest ICMP target labelled scope=lan in the host-local prometheus/targets/blackbox-icmp.yml."
     },
     {
       "id": 5,

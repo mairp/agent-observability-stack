@@ -242,7 +242,7 @@
           "legendFormat": ""
         }
       ],
-      "description": "pve_up comes from hypervisor-exporter. The container was running and publishing :9221 but prometheus.yml had no scrape job for it, so this metric had zero samples and the panel always read No data. Scrape job `hypervisor` added 2026-08-27; it also needs INPUT to allow 172.18.0.0/16 -> tcp/8006 (pveproxy), see /usr/local/bin/setup-firewall.sh."
+      "description": "Running guests, from the hypervisor exporter. Its scrape job is host-local (prometheus/scrape.d/, gitignored); without it this panel reads 0."
     },
     {
       "id": 5,

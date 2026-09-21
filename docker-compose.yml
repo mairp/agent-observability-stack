@@ -74,7 +74,6 @@ services:
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
-      - ~/qmd-memory-stack/bench:/usr/share/grafana/public/qmd:ro
       - grafana_data:/var/lib/grafana
     depends_on: [prometheus, tempo]
 
@@ -142,7 +141,7 @@ services:
   # already runs here; do NOT stand up a second collector or ClickHouse elsewhere).
   # Published on the registry's BANDED ports only — HTTP 5123, native 5190 — never the
   # ClickHouse defaults 8123/9000 (the container keeps 8123/9000 internally; only the
-  # host publish is banded). Ports trace to ~/fleet-config/registry/ports.yaml
+  # host publish is banded). Ports trace to the host's fleet port registry
   # (clickhouse_http / clickhouse_native), carried in ./clickhouse.env.
   clickhouse:
     <<: *restart

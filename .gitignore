@@ -12,3 +12,11 @@ media/frames/
 # Sanitized *.example templates are committed instead (see bin/make-public.sh mapping).
 prometheus/targets/blackbox-icmp.yml
 prometheus/targets/blackbox-http.yml
+
+# Local run state of the Ralph loop runner (events, transcripts, run ids) — never publish.
+.ralph-runner/
+# Host-local Prometheus scrape jobs (see prometheus/scrape.d/README.md).
+prometheus/scrape.d/*.yml
+# Python bytecode.
+__pycache__/
+*.pyc
