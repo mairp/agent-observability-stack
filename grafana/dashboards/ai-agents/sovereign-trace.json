@@ -1,0 +1,145 @@
+{
+  "uid": "sovereign-trace",
+  "title": "Request trace",
+  "tags": [
+    "tempo",
+    "traces"
+  ],
+  "description": "One request's trace, opened by link with ?var-trace=<trace id>&var-span=<span id>. The two tables are TraceQL searches, streamed by Grafana over gRPC to Tempo's HTTP port (Tempo's stream_over_http_enabled). Seven days: Tempo keeps traces for 168h and refuses a longer search range.",
+  "editable": false,
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "",
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "templating": {
+    "list": [
+      {
+        "name": "trace",
+        "label": "trace id",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "hide": 0
+      },
+      {
+        "name": "span",
+        "label": "span id",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "hide": 0
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "The span that was linked",
+      "gridPos": {
+        "h": 4,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "Trace **`$trace`** \u00b7 span **`$span`**\n\nFind the span in the waterfall below, or open *Span Filters* and paste the span id."
+      }
+    },
+    {
+      "id": 3,
+      "type": "table",
+      "title": "The linked span",
+      "gridPos": {
+        "h": 4,
+        "w": 24,
+        "x": 0,
+        "y": 4
+      },
+      "datasource": {
+        "type": "tempo",
+        "uid": "tempo"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "tempo",
+            "uid": "tempo"
+          },
+          "queryType": "traceql",
+          "query": "{ span:id = \"$span\" }",
+          "limit": 1,
+          "spss": 1,
+          "tableType": "spans"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "table",
+      "title": "The fifteen stages of this request",
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 8
+      },
+      "datasource": {
+        "type": "tempo",
+        "uid": "tempo"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "tempo",
+            "uid": "tempo"
+          },
+          "queryType": "traceql",
+          "query": "{ trace:id = \"$trace\" && name =~ \"sov.stage.*\" }",
+          "limit": 1,
+          "spss": 50,
+          "tableType": "spans"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "traces",
+      "title": "Waterfall \u2014 every span of the trace",
+      "gridPos": {
+        "h": 30,
+        "w": 24,
+        "x": 0,
+        "y": 17
+      },
+      "datasource": {
+        "type": "tempo",
+        "uid": "tempo"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "tempo",
+            "uid": "tempo"
+          },
+          "queryType": "traceql",
+          "query": "$trace"
+        }
+      ]
+    }
+  ]
+}

@@ -1,3 +1,8 @@
+# Grafana (11.x) runs TraceQL search/metrics as a gRPC STREAM to the datasource
+# URL, http://tempo:3200. Without this, 3200 speaks HTTP only and every search
+# fails with "http2: frame too large"; trace-by-id (plain HTTP) still works.
+stream_over_http_enabled: true
+
 server:
   http_listen_port: 3200
 
