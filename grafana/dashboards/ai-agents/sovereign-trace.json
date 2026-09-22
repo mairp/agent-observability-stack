@@ -38,6 +38,13 @@
           "value": ""
         },
         "hide": 0
+      },
+      {
+        "name": "request",
+        "label": "request id",
+        "type": "textbox",
+        "query": "",
+        "hide": 0
       }
     ]
   },
@@ -54,7 +61,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "Trace **`$trace`** \u00b7 span **`$span`**\n\nFind the span in the waterfall below, or open *Span Filters* and paste the span id."
+        "content": "Trace **`$trace`** · span **`$span`** · request **`$request`**\n\nFind the span in the waterfall below, or open *Span Filters* and paste the span id. The stage table matches the request id when the link carries one, and the trace id otherwise."
       }
     },
     {
@@ -79,10 +86,22 @@
             "uid": "tempo"
           },
           "queryType": "traceql",
-          "query": "{ span:id = \"$span\" }",
+          "query": "{ span:id = \"$span\" } | select(name, span.sov.stage, span.sov.stage_index, span.sov.stage_status, span.sov.stage_applied, span.sov.stage_latency_ms, span.sov.budget_family, span.sov.request_id)",
           "limit": 1,
           "spss": 1,
           "tableType": "spans"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "traceService": true,
+              "traceName": true
+            },
+            "renameByName": {}
+          }
         }
       ]
     },
@@ -108,17 +127,29 @@
             "uid": "tempo"
           },
           "queryType": "traceql",
-          "query": "{ trace:id = \"$trace\" && name =~ \"sov.stage.*\" }",
+          "query": "{ (span.sov.request_id = \"$request\" || trace:id = \"$trace\") && name =~ \"sov.stage.*\" } | select(span.sov.stage_index, span.sov.stage_status, span.sov.stage_applied, span.sov.stage_latency_ms)",
           "limit": 1,
           "spss": 50,
           "tableType": "spans"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "traceService": true,
+              "traceName": true
+            },
+            "renameByName": {}
+          }
         }
       ]
     },
     {
       "id": 2,
       "type": "traces",
-      "title": "Waterfall \u2014 every span of the trace",
+      "title": "Waterfall — every span of the trace",
       "gridPos": {
         "h": 30,
         "w": 24,
