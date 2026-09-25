@@ -4,8 +4,9 @@ queue_rules:
   - name: default
     merge_method: merge
     # Same style as the manual merges: "<PR title> (#<number>)".
-    commit_message_template: |
-      {{ title }} (#{{ number }})
+    commit_message_format:
+      title: pr-title
+      body: empty
     queue_conditions:
       - base = main
       - -draft
