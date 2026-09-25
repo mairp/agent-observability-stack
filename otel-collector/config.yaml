@@ -50,8 +50,10 @@ processors:
           - set(attributes["openinference.span.kind"], "AGENT") where attributes["openinference.span.kind"] == nil and resource.attributes["service.name"] == "openclaw-gateway" and (name == "openclaw.run" or name == "openclaw.harness.run")
           - set(attributes["openinference.span.kind"], "TOOL") where attributes["openinference.span.kind"] == nil and resource.attributes["service.name"] == "openclaw-gateway" and name == "openclaw.exec"
           # Generic, any producer: policy/guard steps by span name, then CHAIN as the default step kind.
-          - set(attributes["openinference.span.kind"], "GUARDRAIL") where attributes["openinference.span.kind"] == nil and IsMatch(name, "(?i)(gate|guard|perimeter|killswitch|redact|sensitivity)")
-          - set(attributes["openinference.span.kind"], "CHAIN") where attributes["openinference.span.kind"] == nil
+          # Spans with GenAI semconv (gen_ai.operation.name: model calls, tool executions) are left
+          # alone: Phoenix infers LLM/TOOL from them itself and renders the chat-message view.
+          - set(attributes["openinference.span.kind"], "GUARDRAIL") where attributes["openinference.span.kind"] == nil and attributes["gen_ai.operation.name"] == nil and IsMatch(name, "(?i)(gate|guard|perimeter|killswitch|redact|sensitivity)")
+          - set(attributes["openinference.span.kind"], "CHAIN") where attributes["openinference.span.kind"] == nil and attributes["gen_ai.operation.name"] == nil
   # NOTE: the former `attributes/scrub` processor (deleted gen_ai.prompt / gen_ai.completion /
   # gen_ai.request.messages / gen_ai.response.messages) was REMOVED ON PURPOSE (2026-09-25,
   # owner decision): full prompts and completions are captured and reach Tempo, Loki and
