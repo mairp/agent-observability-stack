@@ -1,29 +1,40 @@
 receivers:
   otlp:
     protocols:
+      # Content capture is ON (prompts/completions are large attributes), so raise the
+      # ingest caps above the defaults (gRPC 4 MiB, HTTP 20 MiB) to 64 MiB per request.
       grpc:
         endpoint: 0.0.0.0:4317
+        max_recv_msg_size_mib: 64
       http:
         endpoint: 0.0.0.0:4318
+        max_request_body_size: 67108864   # 64 MiB
 
 processors:
   batch:
     timeout: 5s
+    # Bound each export request: with full prompt/completion content a default-size
+    # batch (8192 spans, unbounded bytes) could exceed a backend's gRPC message cap.
+    send_batch_size: 256
+    send_batch_max_size: 512
   memory_limiter:
     check_interval: 5s
     limit_percentage: 75
     spike_limit_percentage: 15
-  # Drop any message body attributes defensively, even if a producer enables content capture.
-  attributes/scrub:
-    actions:
-      - key: gen_ai.prompt
-        action: delete
-      - key: gen_ai.completion
-        action: delete
-      - key: gen_ai.request.messages
-        action: delete
-      - key: gen_ai.response.messages
-        action: delete
+  # Phoenix groups traces into projects by the RESOURCE attribute openinference.project.name
+  # (else everything lands in "default"). Derive it from service.name so each producer
+  # (specstride, sovereign-policy, x, ...) is its own Phoenix project. `insert` = only when
+  # the producer has not set it itself. Used ONLY in traces/phoenix: Tempo/ClickHouse data
+  # is not modified (the receiver fan-out clones data for a mutating pipeline).
+  resource/phoenix_project:
+    attributes:
+      - key: openinference.project.name
+        from_attribute: service.name
+        action: insert
+  # NOTE: the former `attributes/scrub` processor (deleted gen_ai.prompt / gen_ai.completion /
+  # gen_ai.request.messages / gen_ai.response.messages) was REMOVED ON PURPOSE (2026-09-25,
+  # owner decision): full prompts and completions are captured and reach Tempo, Loki and
+  # Phoenix. Rollback = restore it and put it back into the traces + logs pipelines.
 
 exporters:
   # Traces -> Tempo
@@ -31,6 +42,25 @@ exporters:
     endpoint: tempo:4317
     tls:
       insecure: true
+  # Traces -> Arize Phoenix (second trace backend, fan-out). OTLP/HTTP protobuf to the
+  # container-internal :6006, NOT Phoenix's gRPC :4317: Phoenix's gRPC server keeps the
+  # hard-coded 4 MiB receive cap (not configurable in 20.16), while its HTTP /v1/traces
+  # has no body limit — so large prompt/completion batches are never rejected.
+  # Own sending_queue + retry: a Phoenix outage buffers here and never back-pressures
+  # Tempo/ClickHouse (each exporter has an independent queue).
+  otlphttp/phoenix:
+    endpoint: http://phoenix:6006     # the exporter appends /v1/traces
+    compression: gzip
+    timeout: 30s
+    sending_queue:
+      enabled: true
+      num_consumers: 2
+      queue_size: 5000                # batches, not spans (~2.5M spans at max batch 512)
+    retry_on_failure:
+      enabled: true
+      initial_interval: 2s
+      max_interval: 30s
+      max_elapsed_time: 900s          # keep retrying a down Phoenix for 15 min before dropping
   # Agent metrics -> exposed for Prometheus to scrape (job: otel-collector)
   prometheus:
     endpoint: 0.0.0.0:8889
@@ -80,13 +110,19 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [memory_limiter, attributes/scrub, batch]
+      processors: [memory_limiter, batch]
       exporters: [otlp/tempo, clickhouse]
+    # Additive fan-out: the SAME otlp receiver feeds a second traces pipeline for Phoenix.
+    # Separate pipeline = its own processors (project mapping) and its own exporter queue.
+    traces/phoenix:
+      receivers: [otlp]
+      processors: [memory_limiter, resource/phoenix_project, batch]
+      exporters: [otlphttp/phoenix]
     metrics:
       receivers: [otlp]
       processors: [memory_limiter, batch]
       exporters: [prometheus]
     logs:
       receivers: [otlp]
-      processors: [memory_limiter, attributes/scrub, batch]
+      processors: [memory_limiter, batch]
       exporters: [otlphttp/loki]

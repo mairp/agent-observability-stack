@@ -33,5 +33,15 @@ else
       alertmanager/alertmanager.tmpl.yml > alertmanager/alertmanager.yml
 fi
 
+# Phoenix -> its dedicated Postgres. Generated ONCE, never rotated here: the password is
+# baked into the phoenix_pg_data volume on first init, so overwriting it would lock Phoenix out.
+# Hex password = URL-safe inside PHOENIX_SQL_DATABASE_URL.
+if [ ! -s secrets/phoenix_pg.env ]; then
+  PHX_PW="$(openssl rand -hex 24)"
+  printf 'POSTGRES_USER=phoenix\nPOSTGRES_PASSWORD=%s\nPOSTGRES_DB=phoenix\nPHOENIX_SQL_DATABASE_URL=postgresql://phoenix:%s@phoenix-postgres:5432/phoenix\n' \
+    "$PHX_PW" "$PHX_PW" > secrets/phoenix_pg.env
+  echo "  (generated secrets/phoenix_pg.env — new Phoenix Postgres credentials)"
+fi
+
 chmod 600 secrets/* 2>/dev/null || true
-echo "Rendered: secrets/openclaw_token, secrets/telegram_token, alertmanager/alertmanager.yml"
+echo "Rendered: secrets/openclaw_token, secrets/telegram_token, secrets/phoenix_pg.env, alertmanager/alertmanager.yml"
