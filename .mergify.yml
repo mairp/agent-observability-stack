@@ -16,18 +16,11 @@ queue_rules:
       - check-success = validate
       - check-success = secret-scan
 
-pull_request_rules:
-  - name: automatically merge PRs into main when CI passes
-    conditions:
-      - base = main
-      - -draft
-      - -label = do-not-merge
-      - check-success = validate
-      - check-success = secret-scan
-    actions:
-      queue:
-  - name: delete the head branch after merge
-    conditions:
-      - merged
-    actions:
-      delete_head_branch:
+merge_protections_settings:
+  # PRs matching these conditions enter the merge queue on their own (no manual queueing).
+  auto_merge_conditions:
+    - base = main
+    - -draft
+    - -label = do-not-merge
+    - check-success = validate
+    - check-success = secret-scan
