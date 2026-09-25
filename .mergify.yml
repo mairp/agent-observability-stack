@@ -1,0 +1,33 @@
+# Mergify: merge every PR into main automatically once CI is green.
+# Opt out per PR with the `do-not-merge` label (or keep it a draft).
+queue_rules:
+  - name: default
+    merge_method: merge
+    # Same style as the manual merges: "<PR title> (#<number>)".
+    commit_message_template: |
+      {{ title }} (#{{ number }})
+    queue_conditions:
+      - base = main
+      - -draft
+      - -label = do-not-merge
+      - check-success = validate
+      - check-success = secret-scan
+    merge_conditions:
+      - check-success = validate
+      - check-success = secret-scan
+
+pull_request_rules:
+  - name: automatically merge PRs into main when CI passes
+    conditions:
+      - base = main
+      - -draft
+      - -label = do-not-merge
+      - check-success = validate
+      - check-success = secret-scan
+    actions:
+      queue:
+  - name: delete the head branch after merge
+    conditions:
+      - merged
+    actions:
+      delete_head_branch:
