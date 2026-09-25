@@ -1,0 +1,10 @@
+[Unit]
+Description=Scrape OpenClaw diagnostics into the textfile collector every 15s
+
+[Timer]
+OnBootSec=60s
+OnUnitActiveSec=15s
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target

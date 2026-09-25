@@ -23,6 +23,20 @@ The OpenClaw gateway runs two official diagnostics plugins:
   gateway is firewalled to the LAN, a host-side script (`exporters/openclaw_textfile.sh`) scrapes it
   over **loopback** with the gateway token and republishes it through the node_exporter textfile
   collector. It also emits `openclaw_diagnostics_up` as a liveness signal.
+  It runs every 15 s from `systemd/openclaw-textfile.{service,timer}`:
+  ```bash
+  sudo cp systemd/openclaw-textfile.{service,timer} /etc/systemd/system/   # adjust ExecStart path
+  sudo systemctl enable --now openclaw-textfile.timer
+  ```
+  Watch `time() - node_textfile_mtime_seconds{file=~".*openclaw.prom"}`: if nothing runs the
+  script, the file goes stale but still says `openclaw_diagnostics_up 1`.
+
+> **Trust gate:** both diagnostics plugins get the gateway's internal diagnostics events only
+> when they are **bundled** or an **official npm install with an install record**. A copy placed by
+> hand in `~/.openclaw/extensions/` loads but logs `internal diagnostics capability unavailable`
+> and exports nothing (no traces, empty `/api/diagnostics/prometheus`). Install them with the
+> gateway's own CLI (it picks the newest version compatible with the runtime), then restart:
+> `openclaw plugins install @openclaw/diagnostics-otel --force` (same for `diagnostics-prometheus`).
 
 ## Metric sources (by intent)
 | Want                         | Metric / source |

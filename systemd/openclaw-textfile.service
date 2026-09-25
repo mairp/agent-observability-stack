@@ -1,0 +1,10 @@
+[Unit]
+Description=OpenClaw diagnostics-prometheus (loopback scrape) -> node_exporter textfile collector
+After=multi-user.target
+
+[Service]
+Type=oneshot
+Environment=TEXTFILE_DIR=/var/lib/node_exporter/textfile_collector
+Environment=HOME=/root
+ExecStart=/opt/observability/exporters/openclaw_textfile.sh
+Nice=10
