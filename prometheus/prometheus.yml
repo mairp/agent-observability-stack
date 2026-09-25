@@ -29,6 +29,12 @@ scrape_configs:
       - targets: ["otel-collector:8889"]   # collector-exported agent metrics
     metrics_path: /metrics
 
+  # Collector self-telemetry (:8888): per-exporter sent/failed spans + queue sizes, so the
+  # Tempo/ClickHouse/Phoenix fan-out is observable (otelcol_exporter_send_failed_spans{exporter}).
+  - job_name: otel-collector-internal
+    static_configs:
+      - targets: ["otel-collector:8888"]
+
   # --- host / infra (pull) ---
   - job_name: node
     static_configs:

@@ -3,6 +3,8 @@ auth_enabled: false
 server:
   http_listen_port: 3100
   grpc_listen_port: 9096
+  grpc_server_max_recv_msg_size: 33554432   # 32 MiB: large prompt log lines on the query path
+  grpc_server_max_send_msg_size: 33554432
   log_level: warn
 
 common:
@@ -32,6 +34,12 @@ limits_config:
   retention_period: 168h              # 7 days
   ingestion_rate_mb: 16
   ingestion_burst_size_mb: 32
+  # Content capture is ON: OTLP log attributes (prompts/completions) land in structured
+  # metadata, default-capped at 64 KB per entry (over-limit entries are REJECTED, not
+  # truncated). Raise to 1 MiB; body lines 256 KB -> 1 MiB, truncated (not dropped) past it.
+  max_structured_metadata_size: 1MB
+  max_line_size: 1MB
+  max_line_size_truncate: true
 
 compactor:
   working_directory: /loki/compactor

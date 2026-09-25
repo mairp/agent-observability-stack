@@ -5,3 +5,8 @@
     - https://example.com                       # a public site you run
   labels:
     probe: http
+- targets:
+    - http://phoenix:6006/healthz                   # Arize Phoenix UI/API (second trace backend, obs network)
+  labels:
+    probe: http
+    stack: observability

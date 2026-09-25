@@ -5,6 +5,10 @@ stream_over_http_enabled: true
 
 server:
   http_listen_port: 3200
+  # Full prompt/completion content makes traces large; the internal gRPC hops
+  # (querier <-> frontend) default to 4 MiB and would fail trace-by-id on big traces.
+  grpc_server_max_recv_msg_size: 67108864   # 64 MiB
+  grpc_server_max_send_msg_size: 67108864
 
 distributor:
   receivers:
@@ -12,6 +16,7 @@ distributor:
       protocols:
         grpc:
           endpoint: 0.0.0.0:4317
+          max_recv_msg_size_mib: 64   # collector -> tempo batches carry prompt/completion content
         http:
           endpoint: 0.0.0.0:4318
 
@@ -43,5 +48,10 @@ metrics_generator:
 
 overrides:
   defaults:
+    # Tempo 2.6 has no per-attribute truncation (content is stored verbatim); the per-trace
+    # cap is what drops data. Raise it from the 5 MB default so long agent sessions with
+    # full prompts/completions are not rejected ("TRACE_TOO_LARGE").
+    global:
+      max_bytes_per_trace: 52428800   # 50 MiB
     metrics_generator:
       processors: [service-graphs, span-metrics]

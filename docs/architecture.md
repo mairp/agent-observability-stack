@@ -27,15 +27,16 @@ Prometheus scrapes:
 - *(optional)* a **virtualization-host exporter** via a private compose overlay.
 
 ## Agent / AI telemetry (OTLP push) — traces, metrics, logs
-The OTel Collector receives OTLP and fans out to three backends:
+The OTel Collector receives OTLP and fans out to these backends (plus ClickHouse for governed-fleet
+span analytics, and **Arize Phoenix** as a second trace backend; see the README "Phoenix" section):
 - **Traces → Tempo** — from the OpenClaw `diagnostics-otel` plugin (per-run spans).
 - **Metrics → Prometheus** — collector-exported; plus **Claude Code** native OTel metrics
   (`claude_code_*`, by model / type / `query_source`).
 - **Logs → Loki** — **Claude Code per-request events** (`claude_code.api_request`: model, tokens, tool
   calls). This pipeline was added so those events aren't dropped; queryable as `{service_name="claude-code"}`.
 
-Content capture (prompt/response bodies) is **disabled**; the collector additionally scrubs any
-`gen_ai.*` message attributes on traces **and** logs defensively (metadata/counts only).
+Content capture (prompt/response bodies) is **enabled** (2026-09-25, owner decision). The former
+collector scrub of `gen_ai.*` message attributes was removed, so content reaches Tempo, Loki and Phoenix.
 
 ## Grafana
 Provisioned datasources (**Prometheus + Tempo + Loki**) and dashboards (as code in
