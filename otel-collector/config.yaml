@@ -23,7 +23,7 @@ processors:
     spike_limit_percentage: 15
   # Phoenix groups traces into projects by the RESOURCE attribute openinference.project.name
   # (else everything lands in "default"). Derive it from service.name so each producer
-  # (specstride, sovereign-policy, x, ...) is its own Phoenix project. `insert` = only when
+  # (specstride, openclaw-gateway, ...) is its own Phoenix project. `insert` = only when
   # the producer has not set it itself. Used ONLY in traces/phoenix: Tempo/ClickHouse data
   # is not modified (the receiver fan-out clones data for a mutating pipeline).
   resource/phoenix_project:
@@ -31,6 +31,27 @@ processors:
       - key: openinference.project.name
         from_attribute: service.name
         action: insert
+  # Phoenix's "kind" column is the OpenInference attribute openinference.span.kind (LLM, CHAIN,
+  # TOOL, AGENT, GUARDRAIL, EVALUATOR, ...), not the OTel SpanKind; producers that don't set it
+  # show "unknown". Derive it ONLY when the producer has not set it (so OpenClaw's own LLM/TOOL
+  # spans are untouched): per-producer rules first, then generic name rules, then CHAIN.
+  # Phoenix pipeline only - Tempo/ClickHouse unchanged.
+  transform/phoenix_kind:
+    error_mode: ignore
+    trace_statements:
+      - context: span
+        statements:
+          # specstride: run > phase > attempt > iter > tool, plus critic/verification gates
+          - set(attributes["openinference.span.kind"], "AGENT") where attributes["openinference.span.kind"] == nil and resource.attributes["service.name"] == "specstride" and attributes["specstride.scope"] == "run"
+          - set(attributes["openinference.span.kind"], "EVALUATOR") where attributes["openinference.span.kind"] == nil and resource.attributes["service.name"] == "specstride" and (attributes["specstride.scope"] == "critic" or attributes["specstride.scope"] == "verification")
+          - set(attributes["openinference.span.kind"], "TOOL") where attributes["openinference.span.kind"] == nil and resource.attributes["service.name"] == "specstride" and IsMatch(name, "^tool( |$)")
+          - set(attributes["openinference.span.kind"], "LLM") where attributes["openinference.span.kind"] == nil and resource.attributes["service.name"] == "specstride" and IsMatch(name, "^agent_text( |$)")
+          # OpenClaw gateway: model/tool spans already carry LLM/TOOL; classify the rest
+          - set(attributes["openinference.span.kind"], "AGENT") where attributes["openinference.span.kind"] == nil and resource.attributes["service.name"] == "openclaw-gateway" and (name == "openclaw.run" or name == "openclaw.harness.run")
+          - set(attributes["openinference.span.kind"], "TOOL") where attributes["openinference.span.kind"] == nil and resource.attributes["service.name"] == "openclaw-gateway" and name == "openclaw.exec"
+          # Generic, any producer: policy/guard steps by span name, then CHAIN as the default step kind.
+          - set(attributes["openinference.span.kind"], "GUARDRAIL") where attributes["openinference.span.kind"] == nil and IsMatch(name, "(?i)(gate|guard|perimeter|killswitch|redact|sensitivity)")
+          - set(attributes["openinference.span.kind"], "CHAIN") where attributes["openinference.span.kind"] == nil
   # NOTE: the former `attributes/scrub` processor (deleted gen_ai.prompt / gen_ai.completion /
   # gen_ai.request.messages / gen_ai.response.messages) was REMOVED ON PURPOSE (2026-09-25,
   # owner decision): full prompts and completions are captured and reach Tempo, Loki and
@@ -116,7 +137,7 @@ service:
     # Separate pipeline = its own processors (project mapping) and its own exporter queue.
     traces/phoenix:
       receivers: [otlp]
-      processors: [memory_limiter, resource/phoenix_project, batch]
+      processors: [memory_limiter, resource/phoenix_project, transform/phoenix_kind, batch]
       exporters: [otlphttp/phoenix]
     metrics:
       receivers: [otlp]
