@@ -14,11 +14,11 @@ fails on host-specific strings (LAN IPs, hostnames, absolute host paths).
 Prompt/response bodies **are captured** by owner decision. The collector's former `attributes/scrub`
 (which deleted `gen_ai.*` message attributes) was removed, and producers with a content switch
 have it enabled. Content is stored in Tempo, Loki and Phoenix; ClickHouse `spans_v1` stays metadata
-only. Phoenix (:5606) is open on the LAN **without auth**, so anyone on the LAN can read every
+only. Phoenix (:3006) is open on the LAN **without auth**, so anyone on the LAN can read every
 captured prompt and completion. See the README "Phoenix" section for the rollback.
 
 ## LAN exposure
-Grafana (3000), Prometheus (9090), Alertmanager (9093), Tempo (3200), Phoenix UI (5606, no auth) publish on the host so you can
+Grafana (3000), Prometheus (9090), Alertmanager (9093), Tempo (3200), Phoenix UI (3006, no auth) publish on the host so you can
 reach them from a laptop/phone on the LAN. Grafana has anonymous **Viewer** + an admin login for edits.
 
 Hardening (recommended on shared networks): scope the published ports to your LAN subnet with a host

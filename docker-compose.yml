@@ -207,7 +207,7 @@ services:
       PHOENIX_AGENTS_DISABLE_WEB_ACCESS: "true"
       PHOENIX_AGENTS_DISABLE_GITHUB: "true"
     ports:
-      # UI only. host publish = registry ports.yaml: phoenix_ui (5606); container = 6006.
+      # UI only. host publish = registry ports.yaml: phoenix_ui (3006); container = 6006.
       - "0.0.0.0:${PHOENIX_UI_PORT:?set PHOENIX_UI_PORT in .env (registry ports.yaml phoenix_ui)}:6006"
     healthcheck:
       # distroless image (no shell/curl): probe with the bundled python
