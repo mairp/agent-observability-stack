@@ -125,6 +125,20 @@ services:
       - ./loki/loki-config.yaml:/etc/loki/loki-config.yaml:ro
       - loki_data:/loki
 
+  # Cloudflare Tunnel: the ONLY public door into the stack, for the public site's digital-twin Worker's
+  # OTLP spans. Remotely-managed tunnel (route otel-twin.<zone> -> http://otel-collector:4320, the
+  # bearer-gated otlp/twin receiver), gated at the edge by Cloudflare Access (Service Auth).
+  # No host port. Token in secrets/cloudflared_tunnel.env (gitignored, TUNNEL_TOKEN=...).
+  cloudflared:
+    image: cloudflare/cloudflared:2026.9.3   # pinned
+    command: ["tunnel", "--no-autoupdate", "run"]
+    env_file:
+      - path: ./secrets/cloudflared_tunnel.env
+        required: false   # host-only secret; absent in CI / clean checkouts
+    restart: unless-stopped
+    networks: [obs]
+    depends_on: [otel-collector]
+
   otel-collector:
     <<: *restart
     image: otel/opentelemetry-collector-contrib:0.109.0
@@ -135,6 +149,8 @@ services:
       - "4318:4318"   # OTLP HTTP
     volumes:
       - ./otel-collector/config.yaml:/etc/otelcol/config.yaml:ro
+      # bearer for the otlp/twin receiver (bin/render-secrets.sh, from .env TWIN_OTEL_BEARER_TOKEN)
+      - ./secrets/twin_otel_token:/etc/otelcol/secrets/twin_otel_token:ro
     depends_on: [tempo, loki]
 
   # ClickHouse — the span/trace analytics store for the governed fleet (15.1 Phase 4).
