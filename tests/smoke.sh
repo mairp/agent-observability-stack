@@ -70,6 +70,27 @@ try: d=json.load(sys.stdin); print("yes" if d.get("batches") or d.get("trace") e
 except: print("no")' 2>/dev/null)
 [ "$found" = "yes" ] && ok "tempo ingested synthetic trace" || no "tempo did not return the synthetic trace"
 
+echo "== Phoenix: agent span mapping still matches (Claude Code traces are beta) =="
+# transform/phoenix_claude keys on Claude Code 2.1.x span names/attributes. An upgrade that
+# renames them makes the mapping stop matching quietly: llm_request spans lose kind LLM.
+PHX="http://127.0.0.1:$(grep -E '^PHOENIX_UI_PORT=' .env 2>/dev/null | cut -d= -f2- || echo 3006)"
+phx=$(curl -s "$PHX/graphql" -H 'content-type: application/json' -d '{"query":"{projects{edges{node{name spans(first:200,sort:{col:startTime,dir:desc}){edges{node{name spanKind input{value}}}}}}}}"}' \
+  | python3 -c 'import sys,json
+try:
+  d=json.load(sys.stdin)
+  p=[e["node"] for e in d["data"]["projects"]["edges"] if e["node"]["name"]=="claude-code"]
+  s=[e["node"] for e in p[0]["spans"]["edges"]] if p else []
+  llm=[x for x in s if x["name"]=="claude_code.llm_request"][:20]
+  bad=[x for x in llm if x["spanKind"]!="llm"]
+  inter=[x for x in s if x["name"]=="claude_code.interaction" and not (x["input"] or {}).get("value")]
+  print("none" if not s else "bad %d/%d llm spans unmapped, %d interactions without input" % (len(bad),len(llm),len(inter)) if (bad or inter) else "ok %d" % len(s))
+except Exception as e: print("error %s" % e)' 2>/dev/null)
+case "$phx" in
+  ok*)   ok "claude-code spans mapped to OpenInference (${phx#ok } recent spans)";;
+  none)  echo "  INFO no claude-code spans in Phoenix yet";;
+  *)     no "claude-code Phoenix mapping: $phx — Claude Code span names changed? update transform/phoenix_claude";;
+esac
+
 echo "== Grafy bot + image renderer =="
 GPW2="$(grep -E '^GRAFANA_ADMIN_PASSWORD=' .env 2>/dev/null | cut -d= -f2-)"
 rcode=$(curl -s -o /tmp/_render.png -w '%{http_code}' -u "admin:${GPW2}" \
