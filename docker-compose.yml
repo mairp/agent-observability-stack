@@ -135,6 +135,8 @@ services:
       - "4318:4318"   # OTLP HTTP
     volumes:
       - ./otel-collector/config.yaml:/etc/otelcol/config.yaml:ro
+      # bearer for the otlp/twin receiver (bin/render-secrets.sh, from .env TWIN_OTEL_BEARER_TOKEN)
+      - ./secrets/twin_otel_token:/etc/otelcol/secrets/twin_otel_token:ro
     depends_on: [tempo, loki]
 
   # ClickHouse — the span/trace analytics store for the governed fleet (15.1 Phase 4).

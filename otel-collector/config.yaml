@@ -10,7 +10,33 @@ receivers:
         endpoint: 0.0.0.0:4318
         max_request_body_size: 67108864   # 64 MiB
 
+  # Digital twin (Cloudflare Worker on the public edge) -> Cloudflare Tunnel (+ Access service
+  # token) -> here. HTTP only, container-internal port 4320 (NOT published on the host; only the
+  # cloudflared service on the `obs` network reaches it), and it requires its own bearer token.
+  otlp/twin:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4320
+        max_request_body_size: 4194304   # 4 MiB; one request's trace is ~tens of KB
+        auth:
+          authenticator: bearertokenauth/twin
+
+extensions:
+  bearertokenauth/twin:
+    filename: /etc/otelcol/secrets/twin_otel_token
+
 processors:
+  # The public door carries ONLY the twin's spans: anything else is dropped.
+  filter/twin:
+    error_mode: ignore
+    traces:
+      span:
+        - resource.attributes["service.name"] != "mairp-digital-twin"
+  resource/twin:
+    attributes:
+      - key: ingress
+        value: cloudflare-tunnel
+        action: upsert
   batch:
     timeout: 5s
     # Bound each export request: with full prompt/completion content a default-size
@@ -233,6 +259,7 @@ exporters:
     verbosity: basic
 
 service:
+  extensions: [bearertokenauth/twin]
   telemetry:
     metrics:
       level: basic
@@ -246,6 +273,16 @@ service:
     traces/phoenix:
       receivers: [otlp]
       processors: [memory_limiter, resource/phoenix_project, transform/phoenix_claude, transform/phoenix_openclaw, transform/phoenix_litellm, transform/phoenix_kind, batch]
+      exporters: [otlphttp/phoenix]
+    # Digital twin via the tunnel receiver: same backends as every other producer. The Worker sets
+    # openinference.span.kind itself, so the Phoenix transforms (all `== nil` guarded) keep them.
+    traces/twin:
+      receivers: [otlp/twin]
+      processors: [memory_limiter, filter/twin, resource/twin, batch]
+      exporters: [otlp/tempo, clickhouse]
+    traces/twin-phoenix:
+      receivers: [otlp/twin]
+      processors: [memory_limiter, filter/twin, resource/twin, resource/phoenix_project, transform/phoenix_claude, transform/phoenix_openclaw, transform/phoenix_litellm, transform/phoenix_kind, batch]
       exporters: [otlphttp/phoenix]
     metrics:
       receivers: [otlp]

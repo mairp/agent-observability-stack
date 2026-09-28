@@ -16,6 +16,9 @@ printf '%s' "${OPENCLAW_SCRAPE_TOKEN:-}" > secrets/openclaw_token
 # Prometheus -> LiteLLM /metrics bearer (master key)
 printf '%s' "${LITELLM_MASTER_KEY:-}" > secrets/litellm_token
 
+# Collector otlp/twin receiver bearer (digital twin Worker -> Cloudflare Tunnel -> collector)
+printf '%s' "${TWIN_OTEL_BEARER_TOKEN:-}" > secrets/twin_otel_token
+
 # Alertmanager -> Telegram bot token (file) + rendered config (chat_id inline)
 printf '%s' "${TELEGRAM_BOT_TOKEN:-}" > secrets/telegram_token
 # chat_id must be a non-zero integer. Until the real ID is set, render a valid no-op receiver
@@ -44,4 +47,6 @@ if [ ! -s secrets/phoenix_pg.env ]; then
 fi
 
 chmod 600 secrets/* 2>/dev/null || true
-echo "Rendered: secrets/openclaw_token, secrets/telegram_token, secrets/phoenix_pg.env, alertmanager/alertmanager.yml"
+# The collector image runs as uid 10001 and reads this one file itself.
+chmod 644 secrets/twin_otel_token 2>/dev/null || true
+echo "Rendered: secrets/openclaw_token, secrets/twin_otel_token, secrets/telegram_token, secrets/phoenix_pg.env, alertmanager/alertmanager.yml"
