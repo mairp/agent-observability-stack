@@ -121,6 +121,10 @@ processors:
           - 'set(attributes["agent.name"], attributes["openclaw.agent"]) where attributes["agent.name"] == nil and attributes["openclaw.agent"] != nil'
           - 'set(attributes["gen_ai.agent.name"], attributes["openclaw.agent"]) where attributes["gen_ai.agent.name"] == nil and attributes["openclaw.agent"] != nil'
           - 'delete_matching_keys(attributes, "^openclaw\\.content\\.")'
+          # Privacy (owner decision 2026-09-28): Mira's workplace-support conversations are not
+          # shown in Phoenix (LAN, no auth). Timing/tokens/model stay; Tempo keeps the content.
+          - 'set(attributes["privacy.content_dropped"], "mira") where attributes["openclaw.agent"] == "mira"'
+          - 'delete_matching_keys(attributes, "^(gen_ai\\.(system_instructions|input\\.messages|output\\.messages|tool\\.definitions)|input\\.value|output\\.value|llm\\.(input|output)_messages\\..*)$") where attributes["openclaw.agent"] == "mira"'
   # LiteLLM gateway (arize_phoenix callback, project litellm-gateway): 3 spans per call —
   # litellm_proxy_request > litellm_request > raw_gen_ai_request (request as sent upstream).
   # arize marks any request carrying `tools` as TOOL, so kind is set here on purpose (the one
@@ -148,6 +152,14 @@ processors:
           - set(attributes["llm.token_count.prompt_details.cache_read"], cache["md"]["usage_object"]["prompt_tokens_details"]["cached_tokens"]) where cache["md"]["usage_object"]["prompt_tokens_details"]["cached_tokens"] != nil
           - delete_matching_keys(attributes, "^(llm\\.input_messages|llm\\.output_messages)\\..*") where name == "litellm_proxy_request"
           - delete_key(attributes, "metadata") where name == "litellm_proxy_request"
+          # The raw upstream span only repeats litellm_request's reply (choices): drop it here, so a
+          # call whose request is filtered below cannot leak its reply through the sibling span.
+          - delete_key(attributes, "llm.openai.choices") where name == "raw_gen_ai_request"
+          # Privacy: Mira (OpenClaw, shared `openclaw` key) is recognised by the system prompt's
+          # "Runtime: agent=mira" line; drop the conversation, keep timing/tokens/model.
+          - 'set(attributes["privacy.content_dropped"], "mira") where IsMatch(attributes["llm.input_messages.0.message.content"], "Runtime: agent=mira\\b")'
+          - 'set(attributes["privacy.content_dropped"], "mira") where IsMatch(attributes["input.value"], "Runtime: agent=mira\\b")'
+          - delete_matching_keys(attributes, "^(input\\.value|output\\.value|llm\\.(input|output)_messages\\..*)$") where attributes["privacy.content_dropped"] == "mira"
   # NOTE: the former `attributes/scrub` processor (deleted gen_ai.prompt / gen_ai.completion /
   # gen_ai.request.messages / gen_ai.response.messages) was REMOVED ON PURPOSE (2026-09-25,
   # owner decision): full prompts and completions are captured and reach Tempo, Loki and
