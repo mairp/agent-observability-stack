@@ -143,7 +143,7 @@ sending only to the collector (host `:4317` gRPC / `:4318` HTTP).
 | Port | host `3006` -> container `6006`, declared once as `phoenix_ui` in the fleet port registry (`ports.yaml`), set here as `PHOENIX_UI_PORT` in `.env`. Only the UI is published; Phoenix's OTLP ports stay on the `obs` network. |
 | Image | `arizephoenix/phoenix:20.16.0` (pinned) |
 | Storage | dedicated `phoenix-postgres` (`postgres:16-alpine`, volume `phoenix_pg_data`, no host port). Credentials in `secrets/phoenix_pg.env`, generated once by `bin/render-secrets.sh` and never committed. Phoenix owns its schema (migrations run at start). |
-| Retention | `PHOENIX_DEFAULT_RETENTION_POLICY_DAYS=30`: the default project policy deletes traces older than 30 days (Tempo keeps 7). Change it per project in the UI (Settings -> Data retention). |
+| Retention | `PHOENIX_DEFAULT_RETENTION_POLICY_DAYS=30`: the default project policy deletes traces older than 30 days (Tempo keeps 7). Change it per project in the UI (Settings -> Data retention). Exception: project `claude-code` has its own policy `claude-code 7d` (7 days, purged daily 03:00) because it is the largest producer (~350 MB/day). |
 | Projects | one per `service.name`. The collector copies `service.name` into `openinference.project.name` (only when the producer did not set it), in the Phoenix pipeline only. |
 | Hardening | the built-in agent assistant's server-side bash, web access and GitHub tools are disabled (`PHOENIX_AGENTS_DISABLE_*`), because the UI is unauthenticated. Phoenix telemetry is off. |
 
