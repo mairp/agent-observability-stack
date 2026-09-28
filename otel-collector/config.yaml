@@ -31,7 +31,7 @@ processors:
     error_mode: ignore
     traces:
       span:
-        - resource.attributes["service.name"] != "mairp-digital-twin"
+        - not IsMatch(resource.attributes["service.name"], "^[a-z0-9]+-digital-twin$")
   resource/twin:
     attributes:
       - key: ingress

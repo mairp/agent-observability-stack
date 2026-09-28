@@ -32,7 +32,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "**Digital twin** (https://ask.mairp.ai, Cloudflare Worker) \u2014 one trace per request, including rejected ones: `twin.request` \u2192 one span per guard + `twin.llm.compass`. Rates come from Tempo span-metrics (labels `twin_outcome`, `twin_guard_output_verdict`, `twin_guard_injection_scan_matched`, `cf_country`). Full messages, token totals and conversations (Sessions): **Phoenix** project `digital-twin` at http://10.254.252.200:3006/projects. Pure-CPU guard spans show ~0 ms (Workers clock only advances across I/O)."
+        "content": "**Digital twin** (the public ask endpoint, Cloudflare Worker) \u2014 one trace per request, including rejected ones: `twin.request` \u2192 one span per guard + `twin.llm.compass`. Rates come from Tempo span-metrics (labels `twin_outcome`, `twin_guard_output_verdict`, `twin_guard_injection_scan_matched`, `cf_country`). Full messages, token totals and conversations (Sessions): **Phoenix** project `digital-twin` in the Phoenix UI (host port 3006). Pure-CPU guard spans show ~0 ms (Workers clock only advances across I/O)."
       }
     },
     {
@@ -84,7 +84,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "round(sum(increase(traces_spanmetrics_calls_total{service=\"mairp-digital-twin\", span_name=\"twin.request\"}[$__range])))",
+          "expr": "round(sum(increase(traces_spanmetrics_calls_total{service=~\".+-digital-twin\", span_name=\"twin.request\"}[$__range])))",
           "instant": true
         }
       ]
@@ -138,7 +138,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "round(sum(increase(traces_spanmetrics_calls_total{service=\"mairp-digital-twin\", span_name=\"twin.request\", twin_outcome=\"answered\"}[$__range])))",
+          "expr": "round(sum(increase(traces_spanmetrics_calls_total{service=~\".+-digital-twin\", span_name=\"twin.request\", twin_outcome=\"answered\"}[$__range])))",
           "instant": true
         }
       ]
@@ -192,7 +192,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "round(sum(increase(traces_spanmetrics_calls_total{service=\"mairp-digital-twin\", span_name=\"twin.request\", twin_outcome=~\"forbidden_origin|payload_too_large|bad_json|verification_failed|rate_limited|busy|invalid_messages|refused\"}[$__range])))",
+          "expr": "round(sum(increase(traces_spanmetrics_calls_total{service=~\".+-digital-twin\", span_name=\"twin.request\", twin_outcome=~\"forbidden_origin|payload_too_large|bad_json|verification_failed|rate_limited|busy|invalid_messages|refused\"}[$__range])))",
           "instant": true
         }
       ]
@@ -246,7 +246,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "round(sum(increase(traces_spanmetrics_calls_total{service=\"mairp-digital-twin\", span_name=\"twin.request\", status_code=\"STATUS_CODE_ERROR\"}[$__range])))",
+          "expr": "round(sum(increase(traces_spanmetrics_calls_total{service=~\".+-digital-twin\", span_name=\"twin.request\", status_code=\"STATUS_CODE_ERROR\"}[$__range])))",
           "instant": true
         }
       ]
@@ -299,7 +299,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (twin_outcome) (increase(traces_spanmetrics_calls_total{service=\"mairp-digital-twin\", span_name=\"twin.request\", twin_outcome!=\"\"}[1h]))",
+          "expr": "sum by (twin_outcome) (increase(traces_spanmetrics_calls_total{service=~\".+-digital-twin\", span_name=\"twin.request\", twin_outcome!=\"\"}[1h]))",
           "legendFormat": "{{twin_outcome}}"
         }
       ]
@@ -352,7 +352,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.5, sum by (le) (rate(traces_spanmetrics_latency_bucket{service=\"mairp-digital-twin\", span_name=\"twin.request\", twin_outcome=\"answered\"}[15m])))",
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(traces_spanmetrics_latency_bucket{service=~\".+-digital-twin\", span_name=\"twin.request\", twin_outcome=\"answered\"}[15m])))",
           "legendFormat": "total p50"
         },
         {
@@ -361,7 +361,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(traces_spanmetrics_latency_bucket{service=\"mairp-digital-twin\", span_name=\"twin.request\", twin_outcome=\"answered\"}[15m])))",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(traces_spanmetrics_latency_bucket{service=~\".+-digital-twin\", span_name=\"twin.request\", twin_outcome=\"answered\"}[15m])))",
           "legendFormat": "total p95"
         },
         {
@@ -370,7 +370,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.5, sum by (le) (rate(traces_spanmetrics_latency_bucket{service=\"mairp-digital-twin\", span_name=\"twin.llm.compass\"}[15m])))",
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(traces_spanmetrics_latency_bucket{service=~\".+-digital-twin\", span_name=\"twin.llm.compass\"}[15m])))",
           "legendFormat": "upstream p50"
         },
         {
@@ -379,7 +379,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(traces_spanmetrics_latency_bucket{service=\"mairp-digital-twin\", span_name=\"twin.llm.compass\"}[15m])))",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(traces_spanmetrics_latency_bucket{service=~\".+-digital-twin\", span_name=\"twin.llm.compass\"}[15m])))",
           "legendFormat": "upstream p95"
         }
       ]
@@ -432,7 +432,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (twin_outcome) (increase(traces_spanmetrics_calls_total{service=\"mairp-digital-twin\", span_name=\"twin.request\", twin_outcome=~\"forbidden_origin|payload_too_large|bad_json|verification_failed|rate_limited|busy|invalid_messages\"}[1h]))",
+          "expr": "sum by (twin_outcome) (increase(traces_spanmetrics_calls_total{service=~\".+-digital-twin\", span_name=\"twin.request\", twin_outcome=~\"forbidden_origin|payload_too_large|bad_json|verification_failed|rate_limited|busy|invalid_messages\"}[1h]))",
           "legendFormat": "{{twin_outcome}}"
         },
         {
@@ -441,7 +441,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (twin_guard_output_verdict) (increase(traces_spanmetrics_calls_total{service=\"mairp-digital-twin\", span_name=\"twin.guard.output\", twin_guard_output_verdict!=\"pass\"}[1h]))",
+          "expr": "sum by (twin_guard_output_verdict) (increase(traces_spanmetrics_calls_total{service=~\".+-digital-twin\", span_name=\"twin.guard.output\", twin_guard_output_verdict!=\"pass\"}[1h]))",
           "legendFormat": "output: {{twin_guard_output_verdict}}"
         },
         {
@@ -450,7 +450,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(increase(traces_spanmetrics_calls_total{service=\"mairp-digital-twin\", span_name=\"twin.guard.injection_scan\", twin_guard_injection_scan_matched=\"true\"}[1h]))",
+          "expr": "sum(increase(traces_spanmetrics_calls_total{service=~\".+-digital-twin\", span_name=\"twin.guard.injection_scan\", twin_guard_injection_scan_matched=\"true\"}[1h]))",
           "legendFormat": "injection hint (logged, not blocked)"
         }
       ],
@@ -495,7 +495,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "round(topk(10, sum by (cf_country) (increase(traces_spanmetrics_calls_total{service=\"mairp-digital-twin\", span_name=\"twin.request\", cf_country!=\"\"}[$__range]))))",
+          "expr": "round(topk(10, sum by (cf_country) (increase(traces_spanmetrics_calls_total{service=~\".+-digital-twin\", span_name=\"twin.request\", cf_country!=\"\"}[$__range]))))",
           "legendFormat": "{{cf_country}}",
           "instant": true
         }
@@ -523,7 +523,7 @@
             "uid": "tempo"
           },
           "queryType": "traceql",
-          "query": "{resource.service.name=\"mairp-digital-twin\" && name=\"twin.request\"} | select(span.twin.outcome, span.input.value, span.output.value, span.session.id, span.cf.country, span.twin.latency_ms.total)",
+          "query": "{resource.service.name=~\".+-digital-twin\" && name=\"twin.request\"} | select(span.twin.outcome, span.input.value, span.output.value, span.session.id, span.cf.country, span.twin.latency_ms.total)",
           "limit": 50,
           "spss": 20,
           "tableType": "spans"
@@ -552,7 +552,7 @@
             "uid": "tempo"
           },
           "queryType": "traceql",
-          "query": "{resource.service.name=\"mairp-digital-twin\" && name=\"twin.llm.compass\"} | select(span.llm.token_count.prompt, span.llm.token_count.completion, span.llm.token_count.completion_details.reasoning, span.llm.token_count.prompt_details.cache_read, span.twin.latency_ms.upstream, span.gen_ai.response.finish_reasons)",
+          "query": "{resource.service.name=~\".+-digital-twin\" && name=\"twin.llm.compass\"} | select(span.llm.token_count.prompt, span.llm.token_count.completion, span.llm.token_count.completion_details.reasoning, span.llm.token_count.prompt_details.cache_read, span.twin.latency_ms.upstream, span.gen_ai.response.finish_reasons)",
           "limit": 50,
           "spss": 20,
           "tableType": "spans"

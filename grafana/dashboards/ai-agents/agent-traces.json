@@ -48,7 +48,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "**Agent traces** from Claude Code (`claude_code.*`, beta), dsh (`dsh.*`, local plugin) and the LiteLLM gateway (`litellm_*`, arize_phoenix callback). Rates/latency come from Tempo span-metrics (`traces_spanmetrics_*`, labels `llm_model_name` / `gen_ai_request_model`). Full prompts/completions: open a trace here, or the same trace in **Phoenix** (http://10.254.252.200:3006, projects `claude-code`, `dsh`, `litellm-gateway`, `specstride`). SpecStride runs: see *SpecStride Runs & Traces*."
+        "content": "**Agent traces** from Claude Code (`claude_code.*`, beta), dsh (`dsh.*`, local plugin) and the LiteLLM gateway (`litellm_*`, arize_phoenix callback). Rates/latency come from Tempo span-metrics (`traces_spanmetrics_*`, labels `llm_model_name` / `gen_ai_request_model`). Full prompts/completions: open a trace here, or the same trace in **Phoenix** (Phoenix UI (host port 3006), projects `claude-code`, `dsh`, `litellm-gateway`, `specstride`). SpecStride runs: see *SpecStride Runs & Traces*."
       }
     },
     {
