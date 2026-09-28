@@ -54,6 +54,100 @@ processors:
           # alone: Phoenix infers LLM/TOOL from them itself and renders the chat-message view.
           - set(attributes["openinference.span.kind"], "GUARDRAIL") where attributes["openinference.span.kind"] == nil and attributes["gen_ai.operation.name"] == nil and IsMatch(name, "(?i)(gate|guard|perimeter|killswitch|redact|sensitivity)")
           - set(attributes["openinference.span.kind"], "CHAIN") where attributes["openinference.span.kind"] == nil and attributes["gen_ai.operation.name"] == nil
+  # Claude Code native traces (beta: CLAUDE_CODE_ENHANCED_TELEMETRY_BETA=1 + OTEL_TRACES_EXPORTER=otlp)
+  # carry neither OpenInference nor gen_ai.operation.name, so Phoenix would show them as CHAIN with no
+  # input. Map the real 2.1.283 attribute names onto OpenInference. Copy, never overwrite (`== nil`);
+  # Phoenix pipeline only. Content attributes (new_context, tool_input, response.model_output) exist
+  # only when ENABLE_BETA_TRACING_DETAILED + BETA_TRACING_ENDPOINT are set AND the session is -p/SDK;
+  # interactive sessions fall back to user_prompt / full_command / the tool.output span event.
+  # Claude Code tracing is beta: if names change on upgrade these stop matching (tests/smoke.sh checks).
+  transform/phoenix_claude:
+    error_mode: ignore
+    trace_statements:
+      - context: span
+        conditions:
+          - resource.attributes["service.name"] == "claude-code"
+        statements:
+          # interaction = one user turn (trace root, or child of an inbound TRACEPARENT)
+          - set(attributes["openinference.span.kind"], "AGENT") where attributes["openinference.span.kind"] == nil and name == "claude_code.interaction"
+          - set(attributes["input.value"], attributes["user_prompt"]) where attributes["input.value"] == nil and name == "claude_code.interaction"
+          # llm_request = one Messages API call
+          - set(attributes["openinference.span.kind"], "LLM") where attributes["openinference.span.kind"] == nil and name == "claude_code.llm_request"
+          - set(attributes["llm.model_name"], attributes["model"]) where attributes["llm.model_name"] == nil and name == "claude_code.llm_request"
+          - set(attributes["llm.provider"], "anthropic") where attributes["llm.provider"] == nil and name == "claude_code.llm_request"
+          - set(attributes["llm.system"], "anthropic") where attributes["llm.system"] == nil and name == "claude_code.llm_request"
+          - set(attributes["llm.token_count.completion"], attributes["output_tokens"]) where attributes["llm.token_count.completion"] == nil and name == "claude_code.llm_request"
+          - set(attributes["llm.token_count.prompt_details.cache_read"], attributes["cache_read_tokens"]) where name == "claude_code.llm_request" and attributes["cache_read_tokens"] != nil
+          - set(attributes["llm.token_count.prompt_details.cache_write"], attributes["cache_creation_tokens"]) where name == "claude_code.llm_request" and attributes["cache_creation_tokens"] != nil
+          - set(attributes["llm.token_count.prompt"], attributes["input_tokens"] + attributes["cache_read_tokens"] + attributes["cache_creation_tokens"]) where attributes["llm.token_count.prompt"] == nil and name == "claude_code.llm_request" and attributes["input_tokens"] != nil and attributes["cache_read_tokens"] != nil and attributes["cache_creation_tokens"] != nil
+          - set(attributes["llm.token_count.total"], attributes["llm.token_count.prompt"] + attributes["output_tokens"]) where attributes["llm.token_count.total"] == nil and name == "claude_code.llm_request" and attributes["llm.token_count.prompt"] != nil and attributes["output_tokens"] != nil
+          - set(attributes["input.value"], attributes["new_context"]) where attributes["input.value"] == nil and name == "claude_code.llm_request"
+          - set(attributes["output.value"], attributes["response.model_output"]) where attributes["output.value"] == nil and name == "claude_code.llm_request"
+          # tool = one tool call (children: blocked_on_user, execution)
+          - set(attributes["openinference.span.kind"], "TOOL") where attributes["openinference.span.kind"] == nil and name == "claude_code.tool"
+          - set(attributes["tool.name"], attributes["tool_name"]) where attributes["tool.name"] == nil and name == "claude_code.tool"
+          - set(attributes["input.value"], attributes["tool_input"]) where attributes["input.value"] == nil and name == "claude_code.tool"
+          - set(attributes["input.value"], attributes["full_command"]) where attributes["input.value"] == nil and name == "claude_code.tool"
+          - set(attributes["output.value"], attributes["new_context"]) where attributes["output.value"] == nil and name == "claude_code.tool"
+          - set(attributes["openinference.span.kind"], "CHAIN") where attributes["openinference.span.kind"] == nil and IsMatch(name, "^claude_code\\.")
+          - set(attributes["input.mime_type"], "text/plain") where attributes["input.value"] != nil and attributes["input.mime_type"] == nil
+          - set(attributes["output.mime_type"], "text/plain") where attributes["output.value"] != nil and attributes["output.mime_type"] == nil
+      # Tool output without detailed tracing arrives as a `tool.output` span event (OTEL_LOG_TOOL_CONTENT).
+      - context: spanevent
+        conditions:
+          - resource.attributes["service.name"] == "claude-code"
+        statements:
+          - set(span.attributes["output.value"], attributes["output"]) where name == "tool.output" and span.attributes["output.value"] == nil
+          - set(span.attributes["output.mime_type"], "text/plain") where name == "tool.output" and span.attributes["output.mime_type"] == nil
+  # OpenClaw 2026.6.5 gaps (diagnostics-otel plugin has an empty configSchema; no config lever):
+  #  - agent id is only emitted on openclaw.model.usage; the assembled system prompt carries
+  #    "Runtime: agent=<id> | ... | channel=<ch>", so derive it on model-call spans (gen_ai.system_instructions
+  #    is kept — Phoenix builds llm.input_messages from it). run/harness/tool spans have nothing to derive from.
+  #  - session keys/ids are stripped by the plugin (DROPPED_OTEL_ATTRIBUTE_KEYS) -> no session.id possible.
+  #  - content is exported 3x; Phoenix derives llm.* from gen_ai.*, so openclaw.content.* is pure
+  #    duplication here (~81 KB of ~246 KB per model-call span). Phoenix pipeline only; Tempo keeps all.
+  transform/phoenix_openclaw:
+    error_mode: ignore
+    trace_statements:
+      - context: span
+        conditions:
+          - resource.attributes["service.name"] == "openclaw-gateway"
+        statements:
+          - 'merge_maps(cache, ExtractPatterns(attributes["gen_ai.system_instructions"], "Runtime: agent=(?P<agent>[A-Za-z0-9_.:-]{1,64})"), "upsert") where attributes["gen_ai.system_instructions"] != nil'
+          - 'merge_maps(cache, ExtractPatterns(attributes["openclaw.content.system_prompt"], "Runtime: agent=(?P<agent>[A-Za-z0-9_.:-]{1,64})"), "insert") where attributes["openclaw.content.system_prompt"] != nil'
+          - 'merge_maps(cache, ExtractPatterns(attributes["gen_ai.system_instructions"], "\\| channel=(?P<channel>[A-Za-z0-9_.:-]{1,64})"), "upsert") where attributes["gen_ai.system_instructions"] != nil'
+          - 'set(attributes["openclaw.agent"], cache["agent"]) where attributes["openclaw.agent"] == nil and cache["agent"] != nil'
+          - 'set(attributes["openclaw.channel"], cache["channel"]) where attributes["openclaw.channel"] == nil and cache["channel"] != nil'
+          - 'set(attributes["agent.name"], attributes["openclaw.agent"]) where attributes["agent.name"] == nil and attributes["openclaw.agent"] != nil'
+          - 'set(attributes["gen_ai.agent.name"], attributes["openclaw.agent"]) where attributes["gen_ai.agent.name"] == nil and attributes["openclaw.agent"] != nil'
+          - 'delete_matching_keys(attributes, "^openclaw\\.content\\.")'
+  # LiteLLM gateway (arize_phoenix callback, project litellm-gateway): 3 spans per call —
+  # litellm_proxy_request > litellm_request > raw_gen_ai_request (request as sent upstream).
+  # arize marks any request carrying `tools` as TOOL, so kind is set here on purpose (the one
+  # exception to copy-don't-overwrite). Key alias / team / cached tokens only exist inside the
+  # `metadata` JSON: lift them (user.id = key alias, so Phoenix groups by caller). The proxy
+  # span repeats the full messages of its child: dropped here, Phoenix only.
+  transform/phoenix_litellm:
+    error_mode: ignore
+    trace_statements:
+      - context: span
+        conditions:
+          - resource.attributes["service.name"] == "litellm-gateway"
+        statements:
+          # One LLM span per call (litellm_request); the proxy wrapper is CHAIN and loses its token
+          # counts here, else Phoenix sums every call's tokens twice.
+          - set(attributes["openinference.span.kind"], "LLM") where name == "litellm_request"
+          - set(attributes["openinference.span.kind"], "CHAIN") where name == "litellm_proxy_request"
+          - delete_matching_keys(attributes, "^llm\\.token_count\\.") where name == "litellm_proxy_request"
+          - set(attributes["openinference.span.kind"], "CHAIN") where name == "raw_gen_ai_request"
+          - set(cache["md"], ParseJSON(attributes["metadata"])) where attributes["metadata"] != nil and IsMatch(attributes["metadata"], "^\\{")
+          - set(attributes["litellm.key_alias"], cache["md"]["user_api_key_alias"]) where cache["md"]["user_api_key_alias"] != nil
+          - set(attributes["litellm.key_alias"], "master") where attributes["litellm.key_alias"] == nil and cache["md"]["user_api_key_hash"] == "litellm_proxy_master_key"
+          - set(attributes["litellm.team_alias"], cache["md"]["user_api_key_team_alias"]) where cache["md"]["user_api_key_team_alias"] != nil
+          - set(attributes["user.id"], attributes["litellm.key_alias"]) where attributes["user.id"] == nil and attributes["litellm.key_alias"] != nil
+          - set(attributes["llm.token_count.prompt_details.cache_read"], cache["md"]["usage_object"]["prompt_tokens_details"]["cached_tokens"]) where cache["md"]["usage_object"]["prompt_tokens_details"]["cached_tokens"] != nil
+          - delete_matching_keys(attributes, "^(llm\\.input_messages|llm\\.output_messages)\\..*") where name == "litellm_proxy_request"
+          - delete_key(attributes, "metadata") where name == "litellm_proxy_request"
   # NOTE: the former `attributes/scrub` processor (deleted gen_ai.prompt / gen_ai.completion /
   # gen_ai.request.messages / gen_ai.response.messages) was REMOVED ON PURPOSE (2026-09-25,
   # owner decision): full prompts and completions are captured and reach Tempo, Loki and
@@ -139,7 +233,7 @@ service:
     # Separate pipeline = its own processors (project mapping) and its own exporter queue.
     traces/phoenix:
       receivers: [otlp]
-      processors: [memory_limiter, resource/phoenix_project, transform/phoenix_kind, batch]
+      processors: [memory_limiter, resource/phoenix_project, transform/phoenix_claude, transform/phoenix_openclaw, transform/phoenix_litellm, transform/phoenix_kind, batch]
       exporters: [otlphttp/phoenix]
     metrics:
       receivers: [otlp]

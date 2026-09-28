@@ -185,6 +185,31 @@ projects allowlisted columns and drops content attributes.
 3. Producer switches: remove the `OTEL_LOG_*` content flags (Claude Code) and set OpenClaw
    `diagnostics.otel.captureContent.*` back to `false`.
 
+### Agent trace producers (2026-09-28)
+
+Every agent turn on the host is a trace with its prompt. Phoenix-only mapping processors in
+`traces/phoenix` turn each producer's native attributes into OpenInference (`input.value`,
+`output.value`, `llm.*`, `openinference.span.kind`); Tempo and ClickHouse get the spans unchanged.
+Dashboard: **Agent Traces** (`agent-traces`); Tempo span-metrics carry `llm_model_name` and
+`gen_ai_request_model` labels.
+
+| Producer | How it exports | Phoenix project | Mapping | Kill switch |
+|---|---|---|---|---|
+| Claude Code 2.1.x (interactive, bebop, ralph, specstride proposer) | native beta traces: `CLAUDE_CODE_ENHANCED_TELEMETRY_BETA=1`, `OTEL_TRACES_EXPORTER=otlp`, `ENABLE_BETA_TRACING_DETAILED=1`, `BETA_TRACING_ENDPOINT=http://localhost:4318` in `~/.bashrc`, `~/.claude/settings.json` and every agent-pack profile `settings.json`. Spans: `claude_code.interaction > llm_request \| tool \| hook` | `claude-code` | `transform/phoenix_claude` | set **all three** `OTEL_TRACES_EXPORTER=none`, `ENABLE_BETA_TRACING_DETAILED=`, `BETA_TRACING_ENDPOINT=` **in settings.json** (detailed mode exports to `BETA_TRACING_ENDPOINT` whatever `OTEL_TRACES_EXPORTER` says; settings.json `env` beats the process env, `claude --settings '{"env":{...}}'` beats both) |
+| dsh (DeepSeek Harness) | local cordis plugin `/root/dsh-trace-otel` mounted in `/root/.dsh/profiles/{web,headless}/cordis.patch.yml`; `dsh.session > dsh.turn > dsh.llm \| dsh.tool`, already OpenInference. Also `session-telemetry-otel` FULL logs -> Loki | `dsh` | none | `DSH_TRACE_OTEL_DISABLED=1` |
+| LiteLLM gateway :4000 | `arize_phoenix` callback -> collector (`PHOENIX_COLLECTOR_HTTP_ENDPOINT=http://172.17.0.1:4318/v1/traces`); `litellm_proxy_request > litellm_request > raw_gen_ai_request` (request as sent upstream, after hooks/routing/fallbacks) | `litellm-gateway` | `transform/phoenix_litellm` (LLM kind, key alias -> `user.id`, cached tokens, drops the proxy span's duplicate content/tokens) | remove `- arize_phoenix` from `/root/litellm/config.yaml`, `docker compose up -d litellm` |
+| OpenClaw gateway | `diagnostics.otel` (unchanged) | `openclaw-gateway` | `transform/phoenix_openclaw` (agent id + channel from the system prompt's `Runtime:` line; drops the duplicate `openclaw.content.*` copy) | `diagnostics.otel.traces=false` |
+| SpecStride | `lib/ralph_otel_spans.py`: prompt on the attempt/critic span (`input.value` <= `SPECSTRIDE_OTEL_PROMPT_MAX`, `specstride.prompt.{path,sha256,bytes}`), critic reply as `output.value`; exports `TRACEPARENT` so the claude/dsh child nests inside the run | `specstride` (children too) | `transform/phoenix_kind` | `SPECSTRIDE_OTEL_TRACES=false` |
+
+Nesting: Claude Code honours an inbound `TRACEPARENT` env in `-p`/SDK sessions (`parent.source=env`
+on `claude_code.interaction`); dsh honours it and forwards `traceparent` to LiteLLM, which honours
+the header. Phoenix files a whole trace under one project, so a nested LiteLLM span shows in the
+caller's project; Tempo keeps each service name. Known limits: Claude Code tracing is beta (the
+smoke test fails when `claude_code.llm_request` spans stop mapping to LLM); detailed content
+(`new_context`, `response.model_output`, `tool_input`) exists only in `-p`/SDK sessions, and the
+system prompt is a 500-char preview + hash on the span (full text once per hash in Loki,
+event `system_prompt`); OpenClaw strips session ids by design, so its traces have no `session.id`.
+
 ## Docs
 
 - [Architecture](docs/architecture.md) · [Dashboards](docs/dashboards.md) · [Agents](docs/agents.md) · [Onboarding](docs/onboarding.md)
