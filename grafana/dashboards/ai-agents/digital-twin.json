@@ -1,0 +1,563 @@
+{
+  "uid": "digital-twin-traces",
+  "title": "Digital Twin \u2014 requests, guards & LLM (traces)",
+  "tags": [
+    "ai",
+    "traces",
+    "digital-twin",
+    "phoenix"
+  ],
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "1m",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "templating": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "About this dashboard",
+      "gridPos": {
+        "h": 3,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**Digital twin** (https://ask.mairp.ai, Cloudflare Worker) \u2014 one trace per request, including rejected ones: `twin.request` \u2192 one span per guard + `twin.llm.compass`. Rates come from Tempo span-metrics (labels `twin_outcome`, `twin_guard_output_verdict`, `twin_guard_injection_scan_matched`, `cf_country`). Full messages, token totals and conversations (Sessions): **Phoenix** project `digital-twin` at http://10.254.252.200:3006/projects. Pure-CPU guard spans show ~0 ms (Workers clock only advances across I/O)."
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Requests (range)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 3
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "round(sum(increase(traces_spanmetrics_calls_total{service=\"mairp-digital-twin\", span_name=\"twin.request\"}[$__range])))",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Answered (range)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 3
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "round(sum(increase(traces_spanmetrics_calls_total{service=\"mairp-digital-twin\", span_name=\"twin.request\", twin_outcome=\"answered\"}[$__range])))",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Blocked by a guard (range)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 3
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "round(sum(increase(traces_spanmetrics_calls_total{service=\"mairp-digital-twin\", span_name=\"twin.request\", twin_outcome=~\"forbidden_origin|payload_too_large|bad_json|verification_failed|rate_limited|busy|invalid_messages|refused\"}[$__range])))",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Server/upstream errors (range)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 3
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "round(sum(increase(traces_spanmetrics_calls_total{service=\"mairp-digital-twin\", span_name=\"twin.request\", status_code=\"STATUS_CODE_ERROR\"}[$__range])))",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Requests / hour by outcome",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data (nothing of this kind yet)",
+          "custom": {
+            "stacking": {
+              "mode": "normal"
+            },
+            "drawStyle": "bars",
+            "fillOpacity": 60
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (twin_outcome) (increase(traces_spanmetrics_calls_total{service=\"mairp-digital-twin\", span_name=\"twin.request\", twin_outcome!=\"\"}[1h]))",
+          "legendFormat": "{{twin_outcome}}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Latency p50 / p95 \u2014 total vs Compass upstream",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "No data (nothing of this kind yet)",
+          "custom": {
+            "stacking": {
+              "mode": "none"
+            },
+            "drawStyle": "line",
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(traces_spanmetrics_latency_bucket{service=\"mairp-digital-twin\", span_name=\"twin.request\", twin_outcome=\"answered\"}[15m])))",
+          "legendFormat": "total p50"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(traces_spanmetrics_latency_bucket{service=\"mairp-digital-twin\", span_name=\"twin.request\", twin_outcome=\"answered\"}[15m])))",
+          "legendFormat": "total p95"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(traces_spanmetrics_latency_bucket{service=\"mairp-digital-twin\", span_name=\"twin.llm.compass\"}[15m])))",
+          "legendFormat": "upstream p50"
+        },
+        {
+          "refId": "D",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(traces_spanmetrics_latency_bucket{service=\"mairp-digital-twin\", span_name=\"twin.llm.compass\"}[15m])))",
+          "legendFormat": "upstream p95"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Guard blocks / hour by type",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data (nothing of this kind yet)",
+          "custom": {
+            "stacking": {
+              "mode": "normal"
+            },
+            "drawStyle": "bars",
+            "fillOpacity": 60
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (twin_outcome) (increase(traces_spanmetrics_calls_total{service=\"mairp-digital-twin\", span_name=\"twin.request\", twin_outcome=~\"forbidden_origin|payload_too_large|bad_json|verification_failed|rate_limited|busy|invalid_messages\"}[1h]))",
+          "legendFormat": "{{twin_outcome}}"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (twin_guard_output_verdict) (increase(traces_spanmetrics_calls_total{service=\"mairp-digital-twin\", span_name=\"twin.guard.output\", twin_guard_output_verdict!=\"pass\"}[1h]))",
+          "legendFormat": "output: {{twin_guard_output_verdict}}"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(increase(traces_spanmetrics_calls_total{service=\"mairp-digital-twin\", span_name=\"twin.guard.injection_scan\", twin_guard_injection_scan_matched=\"true\"}[1h]))",
+          "legendFormat": "injection hint (logged, not blocked)"
+        }
+      ],
+      "description": "turnstile = verification_failed, rate limit = rate_limited, daily cap = busy; output guard: canary_blocked / employer_blocked / empty. Injection hints are only logged."
+    },
+    {
+      "id": 9,
+      "type": "bargauge",
+      "title": "Top countries (range)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "displayName": "${__field.labels.cf_country}"
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "showUnfilled": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "round(topk(10, sum by (cf_country) (increase(traces_spanmetrics_calls_total{service=\"mairp-digital-twin\", span_name=\"twin.request\", cf_country!=\"\"}[$__range]))))",
+          "legendFormat": "{{cf_country}}",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "table",
+      "title": "Last 50 conversation turns \u2014 question \u2192 answer (click a trace; same trace id in Phoenix)",
+      "datasource": {
+        "type": "tempo",
+        "uid": "tempo"
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 25
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "tempo",
+            "uid": "tempo"
+          },
+          "queryType": "traceql",
+          "query": "{resource.service.name=\"mairp-digital-twin\" && name=\"twin.request\"} | select(span.twin.outcome, span.input.value, span.output.value, span.session.id, span.cf.country, span.twin.latency_ms.total)",
+          "limit": 50,
+          "spss": 20,
+          "tableType": "spans"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "table",
+      "title": "Compass calls \u2014 tokens (prompt, completion, reasoning, cached) and upstream latency",
+      "datasource": {
+        "type": "tempo",
+        "uid": "tempo"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 37
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "tempo",
+            "uid": "tempo"
+          },
+          "queryType": "traceql",
+          "query": "{resource.service.name=\"mairp-digital-twin\" && name=\"twin.llm.compass\"} | select(span.llm.token_count.prompt, span.llm.token_count.completion, span.llm.token_count.completion_details.reasoning, span.llm.token_count.prompt_details.cache_read, span.twin.latency_ms.upstream, span.gen_ai.response.finish_reasons)",
+          "limit": 50,
+          "spss": 20,
+          "tableType": "spans"
+        }
+      ]
+    }
+  ]
+}

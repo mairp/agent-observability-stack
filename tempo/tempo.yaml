@@ -45,7 +45,10 @@ metrics_generator:
       # Model per LLM span: OpenInference llm.model_name (LiteLLM, dsh) and GenAI gen_ai.request.model
       # (Claude Code, OpenClaw)
       # -> labels llm_model_name / gen_ai_request_model, for the agent-traces dashboard's calls-by-model panels.
-      dimensions: [llm.model_name, gen_ai.request.model]
+      # Digital twin (<= 800 req/day, low cardinality): outcome, output-guard verdict, injection
+      # hint, visitor country -> labels twin_outcome, twin_guard_output_verdict,
+      # twin_guard_injection_scan_matched, cf_country (digital-twin-traces dashboard).
+      dimensions: [llm.model_name, gen_ai.request.model, twin.outcome, twin.guard.output.verdict, twin.guard.injection_scan.matched, cf.country]
   storage:
     path: /var/tempo/generator/wal
     remote_write:
