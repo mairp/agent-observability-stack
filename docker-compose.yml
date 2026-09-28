@@ -125,6 +125,18 @@ services:
       - ./loki/loki-config.yaml:/etc/loki/loki-config.yaml:ro
       - loki_data:/loki
 
+  # Cloudflare Tunnel: the ONLY public door into the stack, for the mairp.ai digital-twin Worker's
+  # OTLP spans. Remotely-managed tunnel (route otel-twin.<zone> -> http://otel-collector:4320, the
+  # bearer-gated otlp/twin receiver), gated at the edge by Cloudflare Access (Service Auth).
+  # No host port. Token in secrets/cloudflared_tunnel.env (gitignored, TUNNEL_TOKEN=...).
+  cloudflared:
+    image: cloudflare/cloudflared:2026.9.3   # pinned
+    command: ["tunnel", "--no-autoupdate", "run"]
+    env_file: [./secrets/cloudflared_tunnel.env]
+    restart: unless-stopped
+    networks: [obs]
+    depends_on: [otel-collector]
+
   otel-collector:
     <<: *restart
     image: otel/opentelemetry-collector-contrib:0.109.0
