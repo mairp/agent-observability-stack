@@ -186,6 +186,21 @@ processors:
           - 'set(attributes["privacy.content_dropped"], "mira") where IsMatch(attributes["llm.input_messages.0.message.content"], "Runtime: agent=mira\\b")'
           - 'set(attributes["privacy.content_dropped"], "mira") where IsMatch(attributes["input.value"], "Runtime: agent=mira\\b")'
           - delete_matching_keys(attributes, "^(input\\.value|output\\.value|llm\\.(input|output)_messages\\..*)$") where attributes["privacy.content_dropped"] == "mira"
+  # Digital twin, Phoenix only: scanners/crawlers are ~99% of twin requests (GETs ->
+  # method_not_allowed, foreign POSTs -> forbidden_origin) and would bury real conversations.
+  # Drop those WHOLE traces here (the outcome sits on the root span only, so a per-span filter
+  # can't). Tempo + ClickHouse keep them, so the digital-twin-traces dashboard still counts them.
+  # Single inverted policy: matching traces are dropped, every other trace is kept.
+  tail_sampling/twin_phoenix:
+    decision_wait: 10s        # the Worker exports a whole request in one batch after responding
+    num_traces: 20000
+    policies:
+      - name: drop-bot-rejects
+        type: string_attribute
+        string_attribute:
+          key: twin.outcome
+          values: [method_not_allowed, forbidden_origin]
+          invert_match: true
   # NOTE: the former `attributes/scrub` processor (deleted gen_ai.prompt / gen_ai.completion /
   # gen_ai.request.messages / gen_ai.response.messages) was REMOVED ON PURPOSE (2026-09-25,
   # owner decision): full prompts and completions are captured and reach Tempo, Loki and
@@ -282,7 +297,7 @@ service:
       exporters: [otlp/tempo, clickhouse]
     traces/twin-phoenix:
       receivers: [otlp/twin]
-      processors: [memory_limiter, filter/twin, resource/twin, resource/phoenix_project, transform/phoenix_claude, transform/phoenix_openclaw, transform/phoenix_litellm, transform/phoenix_kind, batch]
+      processors: [memory_limiter, filter/twin, tail_sampling/twin_phoenix, resource/twin, resource/phoenix_project, transform/phoenix_claude, transform/phoenix_openclaw, transform/phoenix_litellm, transform/phoenix_kind, batch]
       exporters: [otlphttp/phoenix]
     metrics:
       receivers: [otlp]
