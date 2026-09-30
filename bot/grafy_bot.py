@@ -74,10 +74,6 @@ DASH = {
     "inference": ("inference-llama", "inference-llama", "LLM Inference — llama.cpp + MTP (RTX 3090)"),
     "llama": ("inference-llama", "inference-llama", "LLM Inference — llama.cpp + MTP (RTX 3090)"),
     "mtp": ("inference-llama", "inference-llama", "LLM Inference — llama.cpp + MTP (RTX 3090)"),
-    # Agent mix — frontier fading (12.1)
-    "agent-mix": ("agent-mix", "agent-mix", "Agent Mix — Frontier Fading (12.1)"),
-    "mix": ("agent-mix", "agent-mix", "Agent Mix — Frontier Fading (12.1)"),
-    "frontier-fading": ("agent-mix", "agent-mix", "Agent Mix — Frontier Fading (12.1)"),
 }
 
 # Dashboards whose full render is unusable headless (e.g. a WebGL scatter3d panel that the

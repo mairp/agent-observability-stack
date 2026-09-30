@@ -22,14 +22,3 @@ providers:
     options:
       path: /var/lib/grafana/dashboards/ai-agents
       foldersFromFilesStructure: false
-
-  - name: archive
-    orgId: 1
-    folder: "Archive"
-    type: file
-    disableDeletion: false
-    updateIntervalSeconds: 30
-    allowUiUpdates: false
-    options:
-      path: /var/lib/grafana/dashboards/archive
-      foldersFromFilesStructure: false
