@@ -278,42 +278,6 @@ ag = [
 ]
 write(dashboard("OpenClaw Agents — Cost, Latency & Traces", "agents", ag, ["agents", "llm"]), "ai-agents")
 
-# ---------------- Claude Code (by model + agent/subagent) ----------------
-# claude_code.* OTel metrics -> Prometheus. token_usage labels: model, type
-# (input/output/cacheRead/cacheCreation), query_source (main/subagent), session_id.
-# Detailed per-request EVENTS -> Loki (logs panel below). Metrics are session-driven.
-_id = itertools.count(1)
-# Claude Code's OTLP *metrics* are unreliable for real usage: short sessions exit before the 10s
-# metric flush, and the counters are ephemeral (they vanish ~5min after a session ends). The per-request
-# `api_request` LOG events are exported immediately and PERSIST in Loki — so the consumption panels are
-# driven from Loki. Fields on api_request: cost_usd, input_tokens, output_tokens, cache_read_tokens,
-# cache_creation_tokens, model, duration_ms. Subagents come from subagent_completed (agent_type, model,
-# total_tokens). All totals below are over the dashboard time range ($__range) — true persistent history.
-CC = '{service_name="claude-code"} | event_name=`api_request`'
-cc = [
-    lstat("Cost (range)", f'sum(sum_over_time({CC} | unwrap cost_usd [$__range]))', "currencyUSD", 6, 4, 0, 0),
-    lstat("Output tokens", f'sum(sum_over_time({CC} | unwrap output_tokens [$__range]))', "short", 6, 4, 6, 0),
-    lstat("Cache-read tokens", f'sum(sum_over_time({CC} | unwrap cache_read_tokens [$__range]))', "short", 6, 4, 12, 0),
-    lstat("Requests", f'sum(count_over_time({CC} [$__range]))', "short", 6, 4, 18, 0),
-    lts("Cost by MODEL", [(f'sum by (model)(sum_over_time({CC} | unwrap cost_usd [$__interval]))', "{{model}}")], "currencyUSD", 12, 8, 0, 4, stack=True),
-    lts("Tokens by TYPE (in / out / cacheRead / cacheCreation)", [
-        (f'sum(sum_over_time({CC} | unwrap input_tokens [$__interval]))', "input"),
-        (f'sum(sum_over_time({CC} | unwrap output_tokens [$__interval]))', "output"),
-        (f'sum(sum_over_time({CC} | unwrap cache_read_tokens [$__interval]))', "cacheRead"),
-        (f'sum(sum_over_time({CC} | unwrap cache_creation_tokens [$__interval]))', "cacheCreation")], "short", 12, 8, 12, 4, stack=True),
-    lts("Output tokens by MODEL", [(f'sum by (model)(sum_over_time({CC} | unwrap output_tokens [$__interval]))', "{{model}}")], "short", 12, 8, 0, 12, stack=True),
-    lts("Requests by MODEL", [(f'sum by (model)(count_over_time({CC} [$__interval]))', "{{model}}")], "short", 12, 8, 12, 12, stack=True),
-    lbar("Cache-read tokens by MODEL (range)", f'sum by (model)(sum_over_time({CC} | unwrap cache_read_tokens [$__range]))', "short", 12, 8, 0, 20),
-    lts("Request latency p95 (by model)", [(f'quantile_over_time(0.95, {CC} | unwrap duration_ms [$__interval]) by (model)', "{{model}}")], "ms", 12, 8, 12, 20),
-    # ----- Named subagents (from Loki subagent_completed events: agent_type, model, total_tokens) -----
-    lbar("Subagent runs by type", 'sum by (agent_type) (count_over_time({service_name="claude-code"} | event_name=`subagent_completed` [$__range]))', "short", 12, 8, 0, 28),
-    lbar("Subagent tokens by type", 'sum by (agent_type) (sum_over_time({service_name="claude-code"} | event_name=`subagent_completed` | unwrap total_tokens [$__range]))', "short", 12, 8, 12, 28),
-    lts("Subagent tokens over time (by type)", [('sum by (agent_type) (sum_over_time({service_name="claude-code"} | event_name=`subagent_completed` | unwrap total_tokens [$__interval]))', "{{agent_type}}")], "short", 12, 8, 0, 36, stack=True),
-    lts("Subagent activity (by model)", [('sum by (model) (count_over_time({service_name="claude-code"} | event_name=`subagent_completed` [$__interval]))', "{{model}}")], "short", 12, 8, 12, 36, stack=True),
-    logs("Recent Claude Code events (Loki — request/tool/subagent: model, tokens, agent_type)", '{service_name="claude-code"}', 24, 11, 0, 44),
-]
-write(dashboard("Claude Code", "claude-code", cc, ["ai", "claude-code"]), "ai-agents")
-
 # ---------------- LLM Cost & Consumption (unified Claude Code + LiteLLM/OpenClaw) ----------------
 _id = itertools.count(1)
 # Two cost sources: Claude Code (persistent Loki api_request events) + OpenClaw/LiteLLM (persistent
@@ -473,83 +437,6 @@ spec = [
 ]
 write(dashboard("SpecStride Runs & Traces", "specstride-traces", spec, ["ai", "specstride", "traces", "ralph"], refresh="30s",
                 templating=[dict(var_query("task", 'label_values({service_name="ralph"}, task)', ds=LOKI), allValue=".*")]), "ai-agents")
-
-# ---------------- Agent Mix (12.1 frontier-fading tree) ----------------
-# The fading dashboard. ONE event stream (job="agentops", from agent-pack `agentops emit`) feeds
-# every panel here; the SAME events also drive the kanban board (two sinks, one stream — they can
-# never disagree). Loki stream labels (low-cardinality): job="agentops", event, task. Everything
-# else is logfmt in the line: model, agent, verdict, rung, attempts, tokens_in, tokens_out,
-# wall_ms, dial_state, degraded, reason, contract_id, card, adhoc, task_class.
-#   Events: dispatch (task handed to a leaf), verdict (pass|fail|escalated), escalation (kicked up
-#   the ladder), adhoc (bebop ask — a question, no card). LOCAL model = qwen* ; FRONTIER = the rest
-#   (claude-*, gpt-*). GPU-degraded-by-reason is the ONE Prometheus panel: metric
-#   agentops_gpu_degraded{reason=...} from the S3/H1 watchdog — reason="cpu-fallback" (H1) shows as
-#   its own series so a silent CPU-fallback is visually distinct from a device-health degrade (S3).
-_id = itertools.count(1)
-AOVERD = '{job="agentops", event="verdict", task=~"$task"}'
-AODISP = '{job="agentops", event="dispatch", task=~"$task"}'
-AOESC  = '{job="agentops", event="escalation", task=~"$task"}'
-LOCAL_RE = 'qwen.*'                       # local worker; everything else is frontier
-MNOTE = (
-    "**Frontier-fading agent tree (12.1).** opus plans/verifies, the local qwen worker executes, and "
-    "trust is earned per task-class. Every panel is the persistent Loki event stream "
-    "(`job=\"agentops\"`, one event per dispatch/verdict/escalation) over the dashboard range — the "
-    "**same** events that drive the kanban board. **Local** = `qwen*`; **Frontier** = `claude-*` / "
-    "`gpt-*`. The goal of fading is the two numbers up top moving in opposite directions: local task "
-    "share **up**, frontier tokens (cost proxy) **down**, without local-first pass-rate dropping below "
-    "the promotion bar (0.85). GPU-degraded is split **by reason** so a silent CPU-fallback (H1, "
-    "`reason=cpu-fallback`) reads distinctly from a device-health degrade (S3)."
-)
-mix = [
-    text("About this dashboard", MNOTE, 24, 4, 0, 0),
-    # ----- headline stats over the range -----
-    lstat("Tasks completed", f'sum(count_over_time({AOVERD} [$__range]))', "short", 6, 4, 0, 4),
-    lstat("Local task share",
-          f'sum(count_over_time({AOVERD} | logfmt | model=~`{LOCAL_RE}` [$__range])) '
-          f'/ sum(count_over_time({AOVERD} | logfmt [$__range]))',
-          "percentunit", 6, 4, 6, 4,
-          thresholds=[{"color": "red", "value": None}, {"color": "orange", "value": 0.5}, {"color": "green", "value": 0.8}]),
-    lstat("Escalation rate",
-          f'sum(count_over_time({AOESC} [$__range])) '
-          f'/ sum(count_over_time({AODISP} [$__range]))',
-          "percentunit", 6, 4, 12, 4,
-          thresholds=[{"color": "green", "value": None}, {"color": "orange", "value": 0.2}, {"color": "red", "value": 0.4}]),
-    stat("GPU degraded now", 'max(agentops_gpu_degraded) or vector(0)', "short", 6, 4, 18, 4,
-         thresholds=[{"color": "green", "value": None}, {"color": "red", "value": 1}]),
-    # ----- frontier share: tokens + task counts, local vs frontier -----
-    lts("Tokens: local vs frontier (cost proxy)", [
-        (f'sum(sum_over_time({AOVERD} | logfmt | model=~`{LOCAL_RE}` | unwrap tokens_out [$__interval]))', "local (qwen)"),
-        (f'sum(sum_over_time({AOVERD} | logfmt | model!~`{LOCAL_RE}` | unwrap tokens_out [$__interval]))', "frontier (claude/gpt)")],
-        "short", 12, 8, 0, 8, stack=True),
-    lts("Task mix: local vs frontier (count)", [
-        (f'sum(count_over_time({AOVERD} | logfmt | model=~`{LOCAL_RE}` [$__interval]))', "local (qwen)"),
-        (f'sum(count_over_time({AOVERD} | logfmt | model!~`{LOCAL_RE}` [$__interval]))', "frontier (claude/gpt)")],
-        "short", 12, 8, 12, 8, stack=True),
-    # ----- the fading metrics, BY task-class -----
-    lbar("Local-first pass rate by class (promote ≥ 0.85)",
-         f'sum by (task)(count_over_time({AOVERD} | logfmt | model=~`{LOCAL_RE}` | verdict=`pass` | attempts=`1` [$__range])) '
-         f'/ sum by (task)(count_over_time({AOVERD} | logfmt | model=~`{LOCAL_RE}` [$__range]))',
-         "percentunit", 12, 8, 0, 16, legend="{{task}}"),
-    lbar("Escalation rate by class",
-         f'sum by (task)(count_over_time({AOESC} [$__range])) '
-         f'/ sum by (task)(count_over_time({AODISP} [$__range]))',
-         "percentunit", 12, 8, 12, 16, legend="{{task}}"),
-    # ----- dial position + cost proxy breakdown -----
-    lbar("Tasks by dial position (fading state)",
-         f'sum by (dial_state)(count_over_time({AOVERD} | logfmt [$__range]))',
-         "short", 12, 8, 0, 24, legend="{{dial_state}}"),
-    lbar("Frontier tokens by model (range) — cost proxy",
-         f'sum by (model)(sum_over_time({AOVERD} | logfmt | model!~`{LOCAL_RE}` | unwrap tokens_out [$__range]))',
-         "short", 12, 8, 12, 24, legend="{{model}}"),
-    # ----- GPU degraded windows, SPLIT BY reason (H1: cpu-fallback distinct from S3 device-health) -----
-    ts("GPU degraded windows (by reason) — cpu-fallback = H1, others = S3 device-health",
-       [('agentops_gpu_degraded', "{{reason}}")], "short", 24, 7, 0, 32),
-    # ----- raw event stream -----
-    logs("Recent agent-pack events (dispatch / verdict / escalation / adhoc)",
-         '{job="agentops", task=~"$task"}', 24, 11, 0, 39),
-]
-write(dashboard("Agent Mix — Frontier Fading (12.1)", "agent-mix", mix, ["ai", "agents", "12.1", "fading"],
-                templating=[var_query("task", 'label_values({job="agentops"}, task)', ds=LOKI)]), "ai-agents")
 
 # ---------------- Containers ----------------
 _id = itertools.count(1)

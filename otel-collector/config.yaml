@@ -186,7 +186,66 @@ processors:
           - 'set(attributes["privacy.content_dropped"], "mira") where IsMatch(attributes["llm.input_messages.0.message.content"], "Runtime: agent=mira\\b")'
           - 'set(attributes["privacy.content_dropped"], "mira") where IsMatch(attributes["input.value"], "Runtime: agent=mira\\b")'
           - delete_matching_keys(attributes, "^(input\\.value|output\\.value|llm\\.(input|output)_messages\\..*)$") where attributes["privacy.content_dropped"] == "mira"
-  # Digital twin, Phoenix only: scanners/crawlers are ~99% of twin requests (GETs ->
+    # agentic-netops intent tier (the agentic-netops repo, kind cluster): four agent
+  # workloads (service.name intent-supervisor / intent-mapper / intent-allocator /
+  # intent-deployer), each emitting OTLP once to its tier-owned collector
+  # (research.md Decision 8 "one emission, one fan-out point"), which forwards
+  # here. Native shape (verified live 2026-10-11): ioa-observe-sdk is a rebranded
+  # Traceloop/OpenInference SDK, so spans are OpenInference-NATIVE —
+  #   * ChatLiteLLM.chat spans (supervisor only; mapper/allocator/deployer are
+  #     deterministic) carry gen_ai.prompt.N.content / gen_ai.completion.N.content,
+  #     gen_ai.usage.{prompt,completion}_tokens, llm.usage.total_tokens,
+  #     llm.model_name (often the literal "unknown" when the model is configured
+  #     via the oauth2/ shim — the resolved model sits in
+  #     ioa_observe.association.properties.ls_model_name), session.id;
+  #   * decorator spans are named "<name>.agent" and carry agent.name natively;
+  #   * graph runs: "LangGraph.workflow" spans with traceloop.span.kind=workflow,
+  #     plus traceloop.span.kind=task node spans;
+  #   * A2A round-trips (supervisor -> worker) propagate W3C context, so a
+  #     request's full trace (client + remote server + remote agent spans)
+  #     lands in ONE trace, filed under the project of its first span.
+  # NOTE: agents/common/llm.py stamps agentic-netops.{model.id,tokens.*,prompt.
+  # redacted,response.redacted} on the span current at call time, but the SDK's
+  # context scoping means those attributes have not reached any exported span to
+  # date (T333-T335 stamping is inert for the same reason) — the rules below keep
+  # mapping them, so if/when the SDK context is fixed the data flows without
+  # collector changes. Mapping applied here: LLM kind on model spans (Phoenix's
+  # kind column), the "unknown" model fixed from ls_model_name (intentional
+  # overwrite — the one exception, like transform/phoenix_litellm's kind rule),
+  # AGENT kind on "<name>.agent" spans and on workflow spans. Copy, never
+  # overwrite (`== nil`) except where noted. Phoenix pipeline only —
+  # Tempo/ClickHouse keep the native attributes unchanged.
+  transform/phoenix_agentic_netops:
+    error_mode: ignore
+    trace_statements:
+      - context: span
+        conditions:
+          - IsMatch(resource.attributes["service.name"], "^intent-(supervisor|mapper|allocator|deployer)$")
+        statements:
+          # LLM steps: the OpenInference langchain instrumentation does not set
+          # openinference.span.kind, so Phoenix's kind column reads CHAIN. Real
+          # spans carry NO llm.model_name key at all (only gen_ai.request.model
+          # = "unknown" + llm.usage.total_tokens), so match on any of the three.
+          - set(attributes["openinference.span.kind"], "LLM") where attributes["openinference.span.kind"] == nil and (attributes["llm.model_name"] != nil or attributes["gen_ai.request.model"] != nil or attributes["gen_ai.usage.prompt_tokens"] != nil)
+          # Fix the literal "unknown" model (oauth2/ shim hides the real name):
+          # the resolved model is a LangChain association property.
+          - set(attributes["llm.model_name"], attributes["ioa_observe.association.properties.ls_model_name"]) where (attributes["llm.model_name"] == nil or attributes["llm.model_name"] == "unknown") and attributes["ioa_observe.association.properties.ls_model_name"] != nil
+          - set(attributes["gen_ai.request.model"], attributes["ioa_observe.association.properties.ls_model_name"]) where attributes["gen_ai.request.model"] == "unknown" and attributes["ioa_observe.association.properties.ls_model_name"] != nil
+          - set(attributes["gen_ai.response.model"], attributes["ioa_observe.association.properties.ls_model_name"]) where attributes["gen_ai.response.model"] == "unknown" and attributes["ioa_observe.association.properties.ls_model_name"] != nil
+          # Agent decorator spans and graph runs render as agent steps.
+          - set(attributes["openinference.span.kind"], "AGENT") where attributes["openinference.span.kind"] == nil and IsMatch(name, "\\.agent$")
+          - set(attributes["agent.name"], attributes["agent_id"]) where attributes["agent.name"] == nil and attributes["agent_id"] != nil
+          - set(attributes["openinference.span.kind"], "AGENT") where attributes["openinference.span.kind"] == nil and attributes["traceloop.span.kind"] == "workflow"
+          # Future-proofing: llm.py span stamping (inert today, see note above).
+          - set(attributes["llm.model_name"], attributes["agentic-netops.model.id"]) where attributes["llm.model_name"] == nil and attributes["agentic-netops.model.id"] != nil
+          - set(attributes["llm.token_count.prompt"], attributes["agentic-netops.tokens.prompt"]) where attributes["llm.token_count.prompt"] == nil and attributes["agentic-netops.tokens.prompt"] != nil
+          - set(attributes["llm.token_count.completion"], attributes["agentic-netops.tokens.completion"]) where attributes["llm.token_count.completion"] == nil and attributes["agentic-netops.tokens.completion"] != nil
+          - set(attributes["llm.token_count.total"], attributes["agentic-netops.tokens.total"]) where attributes["llm.token_count.total"] == nil and attributes["agentic-netops.tokens.total"] != nil
+          - set(attributes["input.value"], attributes["agentic-netops.prompt.redacted"]) where attributes["input.value"] == nil and attributes["agentic-netops.prompt.redacted"] != nil
+          - set(attributes["output.value"], attributes["agentic-netops.response.redacted"]) where attributes["output.value"] == nil and attributes["agentic-netops.response.redacted"] != nil
+          - set(attributes["input.mime_type"], "text/plain") where attributes["input.mime_type"] == nil and attributes["agentic-netops.prompt.redacted"] != nil
+          - set(attributes["output.mime_type"], "text/plain") where attributes["output.mime_type"] == nil and attributes["agentic-netops.response.redacted"] != nil
+# Digital twin, Phoenix only: scanners/crawlers are ~99% of twin requests (GETs ->
   # method_not_allowed, foreign POSTs -> forbidden_origin) and would bury real conversations.
   # Drop those WHOLE traces here (the outcome sits on the root span only, so a per-span filter
   # can't). Tempo + ClickHouse keep them, so the digital-twin-traces dashboard still counts them.
@@ -287,7 +346,7 @@ service:
     # Separate pipeline = its own processors (project mapping) and its own exporter queue.
     traces/phoenix:
       receivers: [otlp]
-      processors: [memory_limiter, resource/phoenix_project, transform/phoenix_claude, transform/phoenix_openclaw, transform/phoenix_litellm, transform/phoenix_kind, batch]
+      processors: [memory_limiter, resource/phoenix_project, transform/phoenix_claude, transform/phoenix_openclaw, transform/phoenix_litellm, transform/phoenix_agentic_netops, transform/phoenix_kind, batch]
       exporters: [otlphttp/phoenix]
     # Digital twin via the tunnel receiver: same backends as every other producer. The Worker sets
     # openinference.span.kind itself, so the Phoenix transforms (all `== nil` guarded) keep them.
