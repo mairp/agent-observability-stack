@@ -29,42 +29,43 @@ API = f"https://api.telegram.org/bot{TOKEN}"
 
 # dashboard aliases -> (uid, slug, title)
 DASH = {
+    # --- Infrastructure ---
     "host": ("host", "host", "Host / System"),
     "system": ("host", "host", "Host / System"),
     "hypervisor": ("host", "host", "Host / System"),
-    "accelerators": ("accelerators", "accelerators", "Accelerators (iGPU+NPU)"),
-    "acc": ("accelerators", "accelerators", "Accelerators (iGPU+NPU)"),
-    "gpu": ("accelerators", "accelerators", "Accelerators (iGPU+NPU)"),
-    "npu": ("accelerators", "accelerators", "Accelerators (iGPU+NPU)"),
+    "accelerators": ("accelerators", "accelerators", "Accelerators (NVIDIA + iGPU + NPU)"),
+    "acc": ("accelerators", "accelerators", "Accelerators (NVIDIA + iGPU + NPU)"),
+    "gpu": ("accelerators", "accelerators", "Accelerators (NVIDIA + iGPU + NPU)"),
+    "npu": ("accelerators", "accelerators", "Accelerators (NVIDIA + iGPU + NPU)"),
     "network": ("network", "network", "Network & Connectivity"),
     "net": ("network", "network", "Network & Connectivity"),
     "containers": ("containers", "containers", "Containers"),
     "docker": ("containers", "containers", "Containers"),
-    "agents": ("agents", "agents", "OpenClaw Agents"),
-    "agent": ("agents", "agents", "OpenClaw Agents"),
-    "openclaw": ("agents", "agents", "OpenClaw Agents"),
-    "claude-code": ("claude-code", "claude-code", "Claude Code"),
-    "claude": ("claude-code", "claude-code", "Claude Code"),
-    "cc": ("claude-code", "claude-code", "Claude Code"),
-    "llm-cost": ("llm-cost", "llm-cost", "LLM Cost & Consumption"),
-    "cost": ("llm-cost", "llm-cost", "LLM Cost & Consumption"),
-    "llm": ("llm-cost", "llm-cost", "LLM Cost & Consumption"),
-    "spend": ("llm-cost", "llm-cost", "LLM Cost & Consumption"),
-    "rag": ("rag", "rag", "RAG / Memory"),
-    "memory": ("rag", "rag", "RAG / Memory"),
-    "qmd": ("rag", "rag", "RAG / Memory"),
-    "vectors": ("qmd-vector-space", "qmd-vector-space", "QMD Vector Space"),
-    "vector": ("qmd-vector-space", "qmd-vector-space", "QMD Vector Space"),
-    "vector-space": ("qmd-vector-space", "qmd-vector-space", "QMD Vector Space"),
-    "vectorspace": ("qmd-vector-space", "qmd-vector-space", "QMD Vector Space"),
-    "space": ("qmd-vector-space", "qmd-vector-space", "QMD Vector Space"),
-    "embeddings": ("qmd-vector-space", "qmd-vector-space", "QMD Vector Space"),
-    "pca": ("qmd-vector-space", "qmd-vector-space", "QMD Vector Space"),
-    # Composite: Claude Code vs pi
-    "composite": ("agents-composite", "agents-composite", "Agents — Claude Code vs pi"),
-    "agents-composite": ("agents-composite", "agents-composite", "Agents — Claude Code vs pi"),
-    "both": ("agents-composite", "agents-composite", "Agents — Claude Code vs pi"),
-    "claude-vs-pi": ("agents-composite", "agents-composite", "Agents — Claude Code vs pi"),
+    # --- AI & Agents ---
+    "agents": ("agents", "agents", "OpenClaw Agents — Cost, Latency & Traces"),
+    "agent": ("agents", "agents", "OpenClaw Agents — Cost, Latency & Traces"),
+    "openclaw": ("agents", "agents", "OpenClaw Agents — Cost, Latency & Traces"),
+    "llm-cost": ("llm-cost", "llm-cost", "LLM Cost & Consumption (Unified)"),
+    "cost": ("llm-cost", "llm-cost", "LLM Cost & Consumption (Unified)"),
+    "llm": ("llm-cost", "llm-cost", "LLM Cost & Consumption (Unified)"),
+    "spend": ("llm-cost", "llm-cost", "LLM Cost & Consumption (Unified)"),
+    "litellm-models": ("litellm-models", "litellm-models", "Models — LiteLLM Inventory"),
+    "models": ("litellm-models", "litellm-models", "Models — LiteLLM Inventory"),
+    "rag": ("rag", "rag", "RAG / Memory (QMD)"),
+    "memory": ("rag", "rag", "RAG / Memory (QMD)"),
+    "qmd": ("rag", "rag", "RAG / Memory (QMD)"),
+    "vectors": ("qmd-vector-space", "qmd-vector-space", "QMD Vector Space — memory corpus + benchmark queries"),
+    "vector": ("qmd-vector-space", "qmd-vector-space", "QMD Vector Space — memory corpus + benchmark queries"),
+    "vector-space": ("qmd-vector-space", "qmd-vector-space", "QMD Vector Space — memory corpus + benchmark queries"),
+    "vectorspace": ("qmd-vector-space", "qmd-vector-space", "QMD Vector Space — memory corpus + benchmark queries"),
+    "space": ("qmd-vector-space", "qmd-vector-space", "QMD Vector Space — memory corpus + benchmark queries"),
+    "embeddings": ("qmd-vector-space", "qmd-vector-space", "QMD Vector Space — memory corpus + benchmark queries"),
+    "pca": ("qmd-vector-space", "qmd-vector-space", "QMD Vector Space — memory corpus + benchmark queries"),
+    # Harness comparison (formerly "Claude Code vs pi")
+    "composite": ("agents-composite", "agents-composite", "Agents — Harness comparison (Claude Code / pi / dsh / prime)"),
+    "agents-composite": ("agents-composite", "agents-composite", "Agents — Harness comparison (Claude Code / pi / dsh / prime)"),
+    "both": ("agents-composite", "agents-composite", "Agents — Harness comparison (Claude Code / pi / dsh / prime)"),
+    "claude-vs-pi": ("agents-composite", "agents-composite", "Agents — Harness comparison (Claude Code / pi / dsh / prime)"),
     # Ralph autonomous loops (Loki-backed)
     "ralph": ("ralph-loops", "ralph-loops", "Ralph Loops (multi-harness)"),
     "ralph-loops": ("ralph-loops", "ralph-loops", "Ralph Loops (multi-harness)"),
@@ -74,10 +75,14 @@ DASH = {
     "inference": ("inference-llama", "inference-llama", "LLM Inference — llama.cpp + MTP (RTX 3090)"),
     "llama": ("inference-llama", "inference-llama", "LLM Inference — llama.cpp + MTP (RTX 3090)"),
     "mtp": ("inference-llama", "inference-llama", "LLM Inference — llama.cpp + MTP (RTX 3090)"),
-    # Agent mix — frontier fading (12.1)
-    "agent-mix": ("agent-mix", "agent-mix", "Agent Mix — Frontier Fading (12.1)"),
-    "mix": ("agent-mix", "agent-mix", "Agent Mix — Frontier Fading (12.1)"),
-    "frontier-fading": ("agent-mix", "agent-mix", "Agent Mix — Frontier Fading (12.1)"),
+    # Traces
+    "agent-traces": ("agent-traces", "agent-traces", "Agent Traces (Claude Code, dsh, LiteLLM)"),
+    "digital-twin": ("digital-twin-traces", "digital-twin-traces", "Digital Twin — requests, guards & LLM (traces)"),
+    "twin": ("digital-twin-traces", "digital-twin-traces", "Digital Twin — requests, guards & LLM (traces)"),
+    "sovereign-trace": ("sovereign-trace", "sovereign-trace", "Request trace"),
+    "sovereign": ("sovereign-trace", "sovereign-trace", "Request trace"),
+    "specstride": ("specstride-traces", "specstride-traces", "SpecStride Runs & Traces"),
+    "specstride-traces": ("specstride-traces", "specstride-traces", "SpecStride Runs & Traces"),
 }
 
 # Dashboards whose full render is unusable headless (e.g. a WebGL scatter3d panel that the
@@ -131,13 +136,6 @@ SUMMARY = {
         ("p95 latency", 'histogram_quantile(0.95,sum by(le)(rate(openclaw_model_call_duration_seconds_bucket[10m])))', sec),
         ("Cache hit", 'sum(rate(litellm_input_cached_tokens_metric_total[30m]))/clamp_min(sum(rate(litellm_input_tokens_metric_total[30m])),1)*100', pct),
         ("Agents", 'openclaw_agents_total', num),
-    ],
-    "claude-code": [
-        ("CC tokens 24h", 'sum(increase(claude_code_token_usage_tokens_total[24h]))', num),
-        ("CC cost 24h", 'sum(increase(claude_code_cost_usage_USD_total[24h]))', usd),
-        ("Sessions 24h", 'sum(increase(claude_code_session_count_total[24h]))', num),
-        ("Models", 'count(count by(model)(claude_code_token_usage_tokens_total))', num),
-        ("Cache hit", 'sum(rate(claude_code_token_usage_tokens_total{type="cacheRead"}[30m]))/clamp_min(sum(rate(claude_code_token_usage_tokens_total{type=~"input|cacheRead|cacheCreation"}[30m])),1)*100', pct),
     ],
     "llm-cost": [
         ("Total spend 24h", '(sum(increase(claude_code_cost_usage_USD_total[24h])) or vector(0))+(sum(increase(litellm_spend_metric_total[24h])) or vector(0))', usd),
@@ -331,7 +329,7 @@ HELP = (
     "/values &lt;dashboard&gt; [range] — values only\n"
     "/alerts — firing alerts\n"
     "/list — dashboards\n\n"
-    "dashboards: host, accelerators, network, containers, agents, claude-code, llm-cost, rag, vectors, ralph, inference\n"
+    "dashboards: host, accelerators, network, containers, agents, llm-cost, models, rag, vectors, composite, ralph, inference, agent-traces, twin, sovereign, specstride\n"
     "any dashboard in Grafana works too — use its uid (see /list)\n"
     "range: 1h (default 3h), 6h, 24h, 7d\n"
     "e.g. <code>/graph ralph 24h</code>"
