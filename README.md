@@ -201,6 +201,7 @@ Dashboard: **Agent Traces** (`agent-traces`); Tempo span-metrics carry `llm_mode
 | OpenClaw gateway | `diagnostics.otel` (unchanged) | `openclaw-gateway` | `transform/phoenix_openclaw` (agent id + channel from the system prompt's `Runtime:` line; drops the duplicate `openclaw.content.*` copy; **privacy:** agent `mira` spans lose all message content in Phoenix, tagged `privacy.content_dropped=mira`) | `diagnostics.otel.traces=false` |
 | Digital twin (Cloudflare Worker, public ask endpoint) | hand-rolled OTLP/JSON tracer in the Worker (`src/telemetry.js`), exported after the response over Cloudflare Tunnel + Access to the collector's **`otlp/twin`** receiver (container port 4320, not host-published, `bearertokenauth/twin`, token `secrets/twin_otel_token` from `.env` `TWIN_OTEL_BEARER_TOKEN`; `filter/twin` drops any service not named `*-digital-twin`). Dashboard `digital-twin-traces` | `digital-twin` | none (the Worker sets OpenInference itself) | Worker var `TRACING="off"`; Phoenix drops bot rejects (`method_not_allowed`, `forbidden_origin`) via `tail_sampling/twin_phoenix`, Tempo keeps them |
 | SpecStride | `lib/ralph_otel_spans.py`: prompt on the attempt/critic span (`input.value` <= `SPECSTRIDE_OTEL_PROMPT_MAX`, `specstride.prompt.{path,sha256,bytes}`), critic reply as `output.value`; exports `TRACEPARENT` so the claude/dsh child nests inside the run | `specstride` (children too) | `transform/phoenix_kind` | `SPECSTRIDE_OTEL_TRACES=false` |
+| agentic-netops intent tier (kind cluster, 4 LangGraph agents) | each agent's `ioa-observe-sdk` POSTs OTLP/HTTP **once** to the tier-owned collector (`agent-otel-collector`, ns `agentic-netops-agents`), which fans out to ClickHouse, feature-001 and this collector via an `otlphttp/phoenix` exporter (`AOS_OTLP_HTTP_ENDPOINT`, default `http://172.17.0.1:4318` from inside kind). Spans are OpenInference-NATIVE (ioa-observe-sdk is a rebranded Traceloop SDK): `ChatLiteLLM.chat` spans carry `gen_ai.prompt/completion` content + `gen_ai.usage.*`/`llm.usage.*` tokens; decorator spans are `<name>.agent` with `agent.name`; graph runs are `LangGraph.workflow` + `*.task`; A2A round-trips propagate W3C context so a request is one trace | `intent-supervisor`, `intent-mapper`, `intent-allocator`, `intent-deployer` (one per `service.name`) | `transform/phoenix_agentic_netops` (LLM kind on `ChatLiteLLM.chat` spans — content + tokens already native via `gen_ai.*`; the literal `llm.model_name=unknown` from the oauth2/ shim is fixed from `ioa_observe.association.properties.ls_model_name`; AGENT kind on `<name>.agent` + `LangGraph.workflow` spans; A2A round-trips arrive as single traces filed under the supervisor's project) | remove `otlphttp/phoenix` from the traces pipeline exporters in `deploy/agents/telemetry.yaml` (agentic-netops) and re-apply |
 
 Nesting: Claude Code honours an inbound `TRACEPARENT` env in `-p`/SDK sessions (`parent.source=env`
 on `claude_code.interaction`); dsh honours it and forwards `traceparent` to LiteLLM, which honours
@@ -209,7 +210,13 @@ caller's project; Tempo keeps each service name. Known limits: Claude Code traci
 smoke test fails when `claude_code.llm_request` spans stop mapping to LLM); detailed content
 (`new_context`, `response.model_output`, `tool_input`) exists only in `-p`/SDK sessions, and the
 system prompt is a 500-char preview + hash on the span (full text once per hash in Loki,
-event `system_prompt`); OpenClaw strips session ids by design, so its traces have no `session.id`.
+event `system_prompt`); OpenClaw strips session ids by design, so its traces have no `session.id`;
+the agentic-netops intent tier's source-side redaction (agent-tier policy T333-T335 in
+`agents/common/llm.py`) is currently inert — the SDK's context scoping keeps those
+`agentic-netops.*` attributes off exported spans — so its Phoenix spans carry FULL
+prompt/completion content (consistent with this stack's content-capture-on policy); the
+literal `llm.model_name=unknown` is corrected to the resolved model by
+`transform/phoenix_agentic_netops`.
 
 ## Docs
 
